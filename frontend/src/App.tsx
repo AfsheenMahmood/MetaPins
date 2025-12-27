@@ -10,7 +10,7 @@ import SimilarModal from "./components/SimilarModal";
 import { findSimilarPins } from "./utils/similarity";
 import type { Pin as SimilarPin } from "./utils/similarity";
 
-// ✅ Export Pin type so other files can import it
+// Export Pin type
 export type Pin = {
   id: string;
   imageUrl: string;
@@ -42,7 +42,8 @@ const App: React.FC = () => {
   const [similarResults, setSimilarResults] = useState<SimilarPin[]>([]);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
 
-  const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+  // Replace with your deployed backend
+  const BACKEND_URL = "https://metapins-production.up.railway.app/api";
 
   // Fetch all pins
   useEffect(() => {
@@ -128,12 +129,16 @@ const App: React.FC = () => {
     setSimilarOpen(false);
   };
 
-  const handleLogin = (username: string) => {
-    setUser({
-      username,
-      uploaded: [],
-      savedPins: [],
-    });
+  // Login & auto-create user if not exists
+  const handleLogin = async (username: string) => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      setUser(res.data);
+    } catch (err) {
+      console.log("User not found, creating new user...");
+      const res = await axios.post(`${BACKEND_URL}/users`, { username });
+      setUser(res.data);
+    }
   };
 
   if (!user) return <Auth onLogin={handleLogin} />;
@@ -151,8 +156,8 @@ const App: React.FC = () => {
       />
 
       <main style={{ padding: "1rem" }} className="masonry-grid">
-        {filteredPins.map((item) => (
-          <div key={item.id} className="masonry-item" style={{ marginBottom: 12 }}>
+        {filteredPins.map((item, index) => (
+          <div key={item.id || `${item.title}-${index}`} className="masonry-item" style={{ marginBottom: 12 }}>
             <Card
               data={item}
               onClick={() => setSelectedPin(item)}

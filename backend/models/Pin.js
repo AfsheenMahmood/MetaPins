@@ -6,15 +6,25 @@ const pinSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    description: {
+      type: String,
+      default: ""
+    },
     imageUrl: {
       type: String,
       required: true
     },
     category: {
-      type: String
+      type: String,
+      default: ""
     },
     tags: {
-      type: [String]
+      type: [String],
+      default: []
+    },
+    color: {
+      type: String,
+      default: ""
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
