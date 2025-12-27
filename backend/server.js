@@ -16,7 +16,7 @@ app.use(cors({
     "http://localhost:5173",           // Local development
     "http://localhost:5174",           // Backup local port
     "http://localhost:3000",           // Alternative local port
-    "https://metapins-production.up.railway.app/" // Production domain (if you have one)
+    "https://metapins-production.up.railway.app" // Production domain (if you have one)
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
