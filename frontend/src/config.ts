@@ -1,1 +1,2 @@
-export const BACKEND_URL = "https://metapibns-production.up.railway.app";
+export const BACKEND_URL = "http://localhost:5000";
+export const BASE_URL = "http://localhost:5000/api"; // backend running locally

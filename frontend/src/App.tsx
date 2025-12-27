@@ -10,7 +10,8 @@ import SimilarModal from "./components/SimilarModal";
 import { findSimilarPins } from "./utils/similarity";
 import type { Pin as SimilarPin } from "./utils/similarity";
 
-type Pin = {
+// ✅ Export Pin type so other files can import it
+export type Pin = {
   id: string;
   imageUrl: string;
   title?: string;
@@ -34,7 +35,6 @@ const App: React.FC = () => {
   const [pins, setPins] = useState<Pin[]>([]);
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
 
-  // UI state
   const [showProfile, setShowProfile] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,8 +60,8 @@ const App: React.FC = () => {
 
   // Fetch user data after login
   useEffect(() => {
+    if (!user) return;
     const fetchUser = async () => {
-      if (!user) return;
       try {
         const res = await axios.get(`${BACKEND_URL}/users/${user.username}`);
         setUser(res.data);
@@ -84,7 +84,6 @@ const App: React.FC = () => {
 
   const makeId = () => `pin_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 
-  // Upload pin to backend
   const handleUploadSave = async (newPin: Pin) => {
     try {
       const payload = {
@@ -101,7 +100,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Filter pins for search
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredPins = normalizedSearch
     ? pins.filter((p) => {
@@ -130,7 +128,6 @@ const App: React.FC = () => {
     setSimilarOpen(false);
   };
 
-  // FIXED: Changed to accept username string and create User object
   const handleLogin = (username: string) => {
     setUser({
       username,
@@ -139,10 +136,7 @@ const App: React.FC = () => {
     });
   };
 
-  if (!user)
-    return (
-      <Auth onLogin={handleLogin} />
-    );
+  if (!user) return <Auth onLogin={handleLogin} />;
 
   return (
     <div style={{ minHeight: "100vh", background: "#fafafa" }}>
@@ -172,7 +166,7 @@ const App: React.FC = () => {
 
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} username={user.username} pins={pins} />
 
-      <UploadModal isOpen={showUpload} onClose={() => setShowUpload(false)} onSave={(pin) => handleUploadSave(pin)} />
+      <UploadModal isOpen={showUpload} onClose={() => setShowUpload(false)} onSave={handleUploadSave} />
 
       <SimilarModal
         isOpen={similarOpen}

@@ -31,6 +31,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       setError("Please enter username and password");
       return;
     }
+
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const existingUser = users.find((u: any) => u.username === username);
 
@@ -138,4 +139,3 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     </div>
   );
 };
-
