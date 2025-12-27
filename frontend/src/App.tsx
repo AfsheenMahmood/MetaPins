@@ -10,6 +10,9 @@ import SimilarModal from "./components/SimilarModal";
 import { findSimilarPins } from "./utils/similarity";
 import type { Pin as SimilarPin } from "./utils/similarity";
 
+import { BASE_URL } from "./config";
+const BACKEND_URL = BASE_URL;
+
 export type Pin = {
   _id?: string;
   id: string;
@@ -47,8 +50,7 @@ const App: React.FC = () => {
   const [similarResults, setSimilarResults] = useState<SimilarPin[]>([]);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
 
-  import { BASE_URL } from "./config";
-  const BACKEND_URL = BASE_URL;
+
 
   // Check for existing token on mount
   useEffect(() => {

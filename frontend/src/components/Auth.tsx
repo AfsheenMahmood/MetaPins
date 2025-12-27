@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+import { BASE_URL } from "../config";
+const BACKEND_URL = BASE_URL;
+
 type AuthProps = {
   onLogin: (username: string, token: string) => void;
 };
 
-import { BASE_URL } from "../config";
-const BACKEND_URL = BASE_URL;
+
 
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
