@@ -10,7 +10,7 @@ import SimilarModal from "./components/SimilarModal";
 import { findSimilarPins } from "./utils/similarity";
 import type { Pin as SimilarPin } from "./utils/similarity";
 
-type Pin = {
+export type Pin = {
   _id?: string;
   id: string;
   imageUrl: string;
@@ -47,13 +47,14 @@ const App: React.FC = () => {
   const [similarResults, setSimilarResults] = useState<SimilarPin[]>([]);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
 
-  const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+  import { BASE_URL } from "./config";
+  const BACKEND_URL = BASE_URL;
 
   // Check for existing token on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("authToken");
     const savedUsername = localStorage.getItem("username");
-    
+
     if (savedToken && savedUsername) {
       setToken(savedToken);
       // Will trigger user fetch in next useEffect
@@ -66,13 +67,13 @@ const App: React.FC = () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/pins`);
         console.log("Pins fetched:", res.data);
-        
+
         // Normalize pin IDs (_id from MongoDB to id for frontend)
         const normalizedPins = res.data.map((p: any) => ({
           ...p,
           id: p._id || p.id,
         }));
-        
+
         setPins(normalizedPins);
       } catch (err) {
         console.error("Failed to fetch pins:", err);
@@ -90,7 +91,7 @@ const App: React.FC = () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/users/${savedUsername}`);
         console.log("User fetched:", res.data);
-        
+
         setUser({
           username: res.data.username,
           uploaded: res.data.uploaded || [],
@@ -118,7 +119,7 @@ const App: React.FC = () => {
 
   const onUpload = () => setShowUpload(true);
   const onOpenProfile = () => setShowProfile(true);
-  
+
   const handleLogout = () => {
     setUser(null);
     setToken(null);
@@ -156,7 +157,7 @@ const App: React.FC = () => {
       };
 
       setPins((prev) => [normalized, ...prev]);
-      
+
       // Update user's uploaded array
       setUser((prev) => prev ? {
         ...prev,
@@ -176,14 +177,14 @@ const App: React.FC = () => {
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredPins = normalizedSearch
     ? pins.filter((p) => {
-        if ((p.title || "").toLowerCase().includes(normalizedSearch)) return true;
-        if ((p.description || "").toLowerCase().includes(normalizedSearch)) return true;
-        if ((p.category || "").toLowerCase().includes(normalizedSearch)) return true;
-        if ((p.color || "").toLowerCase().includes(normalizedSearch)) return true;
-        if (Array.isArray(p.tags) && p.tags.some((t) => String(t).toLowerCase().includes(normalizedSearch)))
-          return true;
-        return false;
-      })
+      if ((p.title || "").toLowerCase().includes(normalizedSearch)) return true;
+      if ((p.description || "").toLowerCase().includes(normalizedSearch)) return true;
+      if ((p.category || "").toLowerCase().includes(normalizedSearch)) return true;
+      if ((p.color || "").toLowerCase().includes(normalizedSearch)) return true;
+      if (Array.isArray(p.tags) && p.tags.some((t) => String(t).toLowerCase().includes(normalizedSearch)))
+        return true;
+      return false;
+    })
     : pins;
 
   const handleCardContext = (e: React.MouseEvent, cardData: Pin) => {
@@ -201,7 +202,7 @@ const App: React.FC = () => {
     setSimilarOpen(false);
   };
 
-  const handleLogin = (username: string, authToken: string) => {
+  const handleLogin = (_username: string, authToken: string) => {
     setToken(authToken);
     // User data will be fetched by useEffect
   };

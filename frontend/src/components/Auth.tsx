@@ -5,7 +5,8 @@ type AuthProps = {
   onLogin: (username: string, token: string) => void;
 };
 
-const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+import { BASE_URL } from "../config";
+const BACKEND_URL = BASE_URL;
 
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
@@ -32,11 +33,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       });
 
       const { token, user } = res.data;
-      
+
       // Store token in localStorage
       localStorage.setItem("authToken", token);
       localStorage.setItem("username", user.username);
-      
+
       onLogin(user.username, token);
     } catch (err: any) {
       setError(err.response?.data?.message || "Login failed");
@@ -63,11 +64,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       });
 
       const { token, user } = res.data;
-      
+
       // Store token in localStorage
       localStorage.setItem("authToken", token);
       localStorage.setItem("username", user.username);
-      
+
       onLogin(user.username, token);
     } catch (err: any) {
       setError(err.response?.data?.message || "Signup failed");
@@ -111,7 +112,6 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               background: "transparent",
               cursor: "pointer",
               border: "none",
-              borderBottom: activeTab === "login" ? "2px solid #646cff" : "2px solid #ccc",
             }}
             onClick={() => {
               setActiveTab("login");
@@ -169,7 +169,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               />
             </>
           )}
-          
+
           <input
             type="email"
             placeholder="Email"
@@ -186,7 +186,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             style={inputStyle}
             disabled={loading}
           />
-          
+
           <button
             type="submit"
             disabled={loading}
