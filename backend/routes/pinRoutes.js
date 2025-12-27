@@ -3,6 +3,7 @@ const router = express.Router();
 const upload = require("../middleware/upload");
 const cloudinary = require("../config/cloudinary");
 const Pin = require("../models/Pin");
+const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 // Simple auth middleware
@@ -22,28 +23,47 @@ const auth = (req, res, next) => {
 // Upload pin
 router.post("/", auth, upload.single("image"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(req.file.path);
 
+    // Create pin
     const pin = new Pin({
       title: req.body.title,
-      category: req.body.category,
-      tags: req.body.tags?.split(","),
+      description: req.body.description || "",
+      category: req.body.category || "",
+      tags: req.body.tags ? req.body.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+      color: req.body.color || "",
       imageUrl: result.secure_url,
       user: req.user.id
     });
 
     await pin.save();
+
+    // Add pin to user's uploaded array
+    await User.findByIdAndUpdate(
+      req.user.id,
+      { $addToSet: { uploaded: pin._id } }
+    );
+
+    // Populate user info before sending response
+    await pin.populate("user", "username name email");
+
     res.status(201).json(pin);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Upload failed" });
   }
 });
+
 // Get all pins (Home feed)
 router.get("/", async (req, res) => {
   try {
     const pins = await Pin.find()
-      .populate("user", "name email")
+      .populate("user", "username name email")
       .sort({ createdAt: -1 });
 
     res.json(pins);
@@ -51,6 +71,7 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch pins" });
   }
 });
+
 // Get pins by specific user (Profile page)
 router.get("/user/:userId", async (req, res) => {
   try {
@@ -62,10 +83,11 @@ router.get("/user/:userId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user pins" });
   }
 });
-// Save a pin
+
+// Save a pin (deprecated - use userRoutes instead)
 router.post("/save/:pinId", auth, async (req, res) => {
   try {
-    const user = await require("../models/User").findById(req.user.id);
+    const user = await User.findById(req.user.id);
 
     if (user.savedPins.includes(req.params.pinId)) {
       return res.status(400).json({ message: "Pin already saved" });
@@ -79,10 +101,11 @@ router.post("/save/:pinId", auth, async (req, res) => {
     res.status(500).json({ message: "Failed to save pin" });
   }
 });
-// Get saved pins
+
+// Get saved pins (deprecated - use userRoutes instead)
 router.get("/saved", auth, async (req, res) => {
   try {
-    const user = await require("../models/User")
+    const user = await User
       .findById(req.user.id)
       .populate("savedPins");
 
@@ -93,4 +116,3 @@ router.get("/saved", auth, async (req, res) => {
 });
 
 module.exports = router;
-

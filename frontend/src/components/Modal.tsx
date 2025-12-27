@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 
 type CommentObj = {
   author: string;
@@ -11,152 +12,182 @@ type ModalProps = {
   onClose: () => void;
   data: any;
   username: string;
+  token: string; // NEW - added token prop
 };
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username }) => {
+const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token }) => {
   const [userData, setUserData] = useState<any>(null);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentObj[]>([]);
+  const [loading, setLoading] = useState(false);
   const placeholderAvatar = "https://via.placeholder.com/40?text=U";
 
+  // Fetch user data when modal opens
   useEffect(() => {
-    if (!data) return;
-    // load current user from localStorage and normalize fields
-    const users = JSON.parse(localStorage.getItem("users") || "[]") as any[];
-    const user = users.find((u: any) => u.username === username) || null;
-    if (user) {
-      setUserData({
-        ...user,
-        likes: Array.isArray(user.likes) ? user.likes : [],
-        savedPins: Array.isArray(user.savedPins) ? user.savedPins : [],
-        moodBoard: Array.isArray(user.moodBoard) ? user.moodBoard : [],
-        comments: typeof user.comments === "object" && user.comments !== null ? user.comments : {},
-      });
-    } else {
-      setUserData({
-        username,
-        likes: [],
-        savedPins: [],
-        moodBoard: [],
-        comments: {},
-        avatarUrl: "",
-      });
-    }
+    if (!data || !isOpen) return;
 
-    // load global comments for this pin (migrate if older per-user comments exist)
+    const fetchUserData = async () => {
+      try {
+        const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+        setUserData({
+          username: res.data.username,
+          likes: res.data.likes || [],
+          savedPins: res.data.savedPins || [],
+          moodBoard: res.data.moodBoard || [],
+          avatarUrl: res.data.avatarUrl || "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch user data:", err);
+      }
+    };
+
+    fetchUserData();
+
+    // Load comments from localStorage (we'll keep this as localStorage for now)
     try {
       const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
-      const pinId = String(data.id);
-      const global = Array.isArray(allComments[pinId]) ? allComments[pinId] : [];
-
-      // Backwards compatibility: check user.comments pin-specific array of strings (legacy) and merge
-      const legacyComments: CommentObj[] = [];
-      if (users && Array.isArray(users)) {
-        users.forEach((u) => {
-          if (u.comments && u.comments[pinId] && Array.isArray(u.comments[pinId])) {
-            u.comments[pinId].forEach((c: any) => {
-              if (typeof c === "string") {
-                legacyComments.push({ author: u.username, text: c, createdAt: new Date().toISOString() });
-              } else if (c && c.author && c.text) {
-                legacyComments.push({ author: c.author, text: c.text, createdAt: c.createdAt ?? new Date().toISOString() });
-              }
-            });
-          }
-        });
-      }
-
-      // merge legacy and global (avoid duplicates by text+author)
-      const merged = [...global];
-      legacyComments.forEach((lc) => {
-        const exists = merged.some((g) => g.author === lc.author && g.text === lc.text);
-        if (!exists) merged.push(lc);
-      });
-
-      setComments(merged);
+      const pinId = String(data._id || data.id);
+      setComments(Array.isArray(allComments[pinId]) ? allComments[pinId] : []);
     } catch (err) {
       setComments([]);
     }
-  }, [data, username]);
+  }, [data, username, isOpen]);
 
   if (!isOpen || !data || !userData) return null;
 
-  const saveUserData = (updatedUser: any) => {
-    const users = JSON.parse(localStorage.getItem("users") || "[]") as any[];
-    const idx = users.findIndex((u: any) => u.username === username);
-    if (idx === -1) {
-      users.push(updatedUser);
-    } else {
-      users[idx] = updatedUser;
+  const pinId = String(data._id || data.id);
+
+  // Toggle like
+  const toggleLike = async () => {
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      await axios.post(
+        `${BACKEND_URL}/users/${username}/like/${pinId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Refresh user data
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      setUserData({
+        username: res.data.username,
+        likes: res.data.likes || [],
+        savedPins: res.data.savedPins || [],
+        moodBoard: res.data.moodBoard || [],
+        avatarUrl: res.data.avatarUrl || "",
+      });
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      alert("Failed to update like");
+    } finally {
+      setLoading(false);
     }
-    localStorage.setItem("users", JSON.stringify(users));
-    setUserData({ ...updatedUser });
   };
 
-  const toggleField = (field: "likes" | "savedPins" | "moodBoard") => {
-    const curArr = Array.isArray(userData[field]) ? [...userData[field]] : [];
-    const idStr = data.id;
-    const index = curArr.indexOf(idStr);
-    const newArr = index > -1 ? curArr.filter((v) => v !== idStr) : [...curArr, idStr];
+  // Toggle save
+  const toggleSave = async () => {
+    if (loading) return;
+    setLoading(true);
 
-    const updatedUser = {
-      ...userData,
-      [field]: newArr,
-    };
-    saveUserData(updatedUser);
+    try {
+      await axios.post(
+        `${BACKEND_URL}/users/${username}/save/${pinId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Refresh user data
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      setUserData({
+        username: res.data.username,
+        likes: res.data.likes || [],
+        savedPins: res.data.savedPins || [],
+        moodBoard: res.data.moodBoard || [],
+        avatarUrl: res.data.avatarUrl || "",
+      });
+    } catch (err) {
+      console.error("Failed to toggle save:", err);
+      alert("Failed to update save");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle mood board
+  const toggleMoodBoard = async () => {
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      await axios.post(
+        `${BACKEND_URL}/users/${username}/moodboard/${pinId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Refresh user data
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      setUserData({
+        username: res.data.username,
+        likes: res.data.likes || [],
+        savedPins: res.data.savedPins || [],
+        moodBoard: res.data.moodBoard || [],
+        avatarUrl: res.data.avatarUrl || "",
+      });
+    } catch (err) {
+      console.error("Failed to toggle mood board:", err);
+      alert("Failed to update mood board");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addComment = () => {
     const txt = commentText.trim();
     if (!txt) return;
+    
     const newComment: CommentObj = {
       author: username,
       text: txt,
       createdAt: new Date().toISOString(),
     };
 
-    // update global comments store in localStorage
+    // Update global comments store in localStorage
     const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
-    const pinId = String(data.id);
     const current = Array.isArray(allComments[pinId]) ? [...allComments[pinId]] : [];
     const updated = [...current, newComment];
     allComments[pinId] = updated;
     localStorage.setItem("comments", JSON.stringify(allComments));
     setComments(updated);
-
-    // Optionally also record user's own comment-history (not required, but keep data consistent)
-    const users = JSON.parse(localStorage.getItem("users") || "[]") as any[];
-    const uidx = users.findIndex((u: any) => u.username === username);
-    if (uidx > -1) {
-      users[uidx].comments = users[uidx].comments || {};
-      users[uidx].comments[pinId] = Array.isArray(users[uidx].comments[pinId]) ? [...users[uidx].comments[pinId], newComment] : [newComment];
-      localStorage.setItem("users", JSON.stringify(users));
-      // refresh userData so component stays consistent
-      const refreshedUser = users[uidx];
-      setUserData({
-        ...refreshedUser,
-        likes: Array.isArray(refreshedUser.likes) ? refreshedUser.likes : [],
-        savedPins: Array.isArray(refreshedUser.savedPins) ? refreshedUser.savedPins : [],
-        moodBoard: Array.isArray(refreshedUser.moodBoard) ? refreshedUser.moodBoard : [],
-        comments: typeof refreshedUser.comments === "object" ? refreshedUser.comments : {},
-      });
-    }
-
     setCommentText("");
   };
 
-  const liked = Array.isArray(userData.likes) && userData.likes.includes(data.id);
-  const saved = Array.isArray(userData.savedPins) && userData.savedPins.includes(data.id);
-  const inMoodBoard = Array.isArray(userData.moodBoard) && userData.moodBoard.includes(data.id);
+  const liked = Array.isArray(userData.likes) && userData.likes.includes(pinId);
+  const saved = Array.isArray(userData.savedPins) && userData.savedPins.includes(pinId);
+  const inMoodBoard = Array.isArray(userData.moodBoard) && userData.moodBoard.includes(pinId);
 
   // helper to read user avatar by username
   const getUserAvatar = (authorName: string) => {
-    try {
-      const users = JSON.parse(localStorage.getItem("users") || "[]") as any[];
-      const u = users.find((x) => x.username === authorName);
-      return u?.avatarUrl || placeholderAvatar;
-    } catch {
-      return placeholderAvatar;
+    if (authorName === username && userData.avatarUrl) {
+      return userData.avatarUrl;
     }
+    return placeholderAvatar;
   };
 
   return (
@@ -188,12 +219,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username })
           overflowY: "auto",
         }}
       >
-        <button onClick={onClose} style={{ float: "right", fontSize: "1.2rem" }} aria-label="Close">
+        <button onClick={onClose} style={{ float: "right", fontSize: "1.2rem", cursor: "pointer" }} aria-label="Close">
           ✖
         </button>
 
         <div style={{ display: "flex", gap: "1rem", marginBottom: "0.5rem" }}>
-          <span>❤️ {liked ? 1 : 0} Likes</span>
+          <span>❤️ {liked ? "Liked" : "Like"}</span>
           <span>💬 {comments.length} Comments</span>
         </div>
 
@@ -209,9 +240,15 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username })
         {data.color && <p><strong>Color:</strong> {data.color}</p>}
 
         <div style={{ display: "flex", gap: "1rem", margin: "1rem 0" }}>
-          <button onClick={() => toggleField("likes")}>❤️ {liked ? "Unlike" : "Like"}</button>
-          <button onClick={() => toggleField("savedPins")}>📌 {saved ? "Saved" : "Save"}</button>
-          <button onClick={() => toggleField("moodBoard")}>{inMoodBoard ? "Added" : "Add to Mood Board"}</button>
+          <button onClick={toggleLike} disabled={loading}>
+            ❤️ {liked ? "Unlike" : "Like"}
+          </button>
+          <button onClick={toggleSave} disabled={loading}>
+            📌 {saved ? "Saved" : "Save"}
+          </button>
+          <button onClick={toggleMoodBoard} disabled={loading}>
+            {inMoodBoard ? "Remove from Mood Board" : "Add to Mood Board"}
+          </button>
         </div>
 
         <div>
@@ -221,7 +258,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username })
               <li key={i} style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
                 <img src={getUserAvatar(c.author)} alt={`${c.author} avatar`} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{c.author} <span style={{ fontSize: 12, fontWeight: 400, color: "#666", marginLeft: 8 }}>{new Date(c.createdAt).toLocaleString()}</span></div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {c.author} 
+                    <span style={{ fontSize: 12, fontWeight: 400, color: "#666", marginLeft: 8 }}>
+                      {new Date(c.createdAt).toLocaleString()}
+                    </span>
+                  </div>
                   <div style={{ fontSize: 14 }}>{c.text}</div>
                 </div>
               </li>
@@ -234,7 +276,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username })
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Add a comment"
-              style={{ width: "80%", padding: "0.5rem", marginRight: "0.5rem" }}
+              style={{ flex: 1, padding: "0.5rem" }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") addComment();
               }}
