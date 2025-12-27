@@ -1,0 +1,92 @@
+[
+  {
+    "id": "pin1",
+    "title": "Beautiful Sunset",
+    "imageUrl": "https://picsum.photos/300/300?random=1",
+    "description": "A stunning sunset over the hills.",
+    "category": "Nature",
+    "tags": ["sunset", "nature", "hills"],
+    "color": "orange"
+  },
+  {
+    "id": "pin2",
+    "title": "Mountain Hike",
+    "imageUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=60",
+    "description": "Hiking in the mountains",
+    "category": "Adventure",
+    "tags": ["mountain", "hike", "nature"],
+    "color": "green"
+  },
+  {
+    "id": "pin3",
+    "title": "City Lights",
+    "imageUrl": "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=60",
+    "description": "The city at night",
+    "category": "Urban",
+    "tags": ["city", "night", "lights"],
+    "color": "yellow"
+  },
+  {
+    "id": "pin4",
+    "title": "Forest Trail",
+    "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=60",
+    "description": "Walking through a forest trail",
+    "category": "Nature",
+    "tags": ["forest", "trail", "hike"],
+    "color": "green"
+  },
+  {
+    "id": "pin5",
+    "title": "Snowy Mountains",
+    "imageUrl": "https://images.unsplash.com/photo-1482192596544-9eb780fc7f66?auto=format&fit=crop&w=800&q=60",
+    "description": "Snow-covered mountains",
+    "category": "Winter",
+    "tags": ["snow", "mountains", "cold"],
+    "color": "white"
+  },
+  {
+    "id": "pin6",
+    "title": "Ocean Waves",
+    "imageUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=60",
+    "description": "Relaxing ocean waves",
+    "category": "Nature",
+    "tags": ["ocean", "waves", "beach"],
+    "color": "blue"
+  },
+  {
+    "id": "pin7",
+    "title": "Desert Dunes",
+    "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=60",
+    "description": "Golden sand dunes",
+    "category": "Desert",
+    "tags": ["desert", "sand", "dunes"],
+    "color": "gold"
+  },
+  {
+    "id": "pin8",
+    "title": "City Sunrise",
+    "imageUrl": "https://images.unsplash.com/photo-1482192596544-9eb780fc7f66?auto=format&fit=crop&w=800&q=60",
+    "description": "Sunrise over the city skyline",
+    "category": "Urban",
+    "tags": ["city", "sunrise", "skyline"],
+    "color": "orange"
+  },
+  {
+    "id": "pin9",
+    "title": "Autumn Leaves",
+    "imageUrl": "https://images.unsplash.com/photo-1501975558160-5f8d8e8ed0e4?auto=format&fit=crop&w=800&q=60",
+    "description": "Colorful autumn leaves",
+    "category": "Nature",
+    "tags": ["autumn", "leaves", "fall"],
+    "color": "red"
+  },
+  {
+    "id": "pin10",
+    "title": "Night Stars",
+    "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=60",
+    "description": "Starry night sky",
+    "category": "Nature",
+    "tags": ["stars", "night", "sky"],
+    "color": "darkblue"
+  }
+]
