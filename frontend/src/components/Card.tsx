@@ -4,9 +4,11 @@ type CardProps = {
   data: any;
   onClick?: () => void;
   onContextMenu?: (e: React.MouseEvent, data: any) => void;
+  onToggleSave?: (e: React.MouseEvent, pinId: string) => void;
+  isSaved?: boolean;
 };
 
-export const Card: React.FC<CardProps> = ({ data, onClick, onContextMenu }) => {
+export const Card: React.FC<CardProps> = ({ data, onClick, onContextMenu, onToggleSave, isSaved }) => {
   return (
     <div
       onClick={onClick}
@@ -16,29 +18,37 @@ export const Card: React.FC<CardProps> = ({ data, onClick, onContextMenu }) => {
           onContextMenu(e, data);
         }
       }}
-      style={{
-        cursor: "pointer",
-        borderRadius: 8,
-        overflow: "hidden",
-        background: "#fff",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
-      }}
+      className="pin-card"
       aria-label={data.title || "pin card"}
     >
       {data.imageUrl && (
-        <img
-          src={data.imageUrl}
-          alt={data.title}
-          style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 360 }}
-          loading="lazy"
-        />
+        <div style={{ position: "relative" }}>
+          <img
+            src={data.imageUrl}
+            alt={data.title}
+            className="pin-image"
+            loading="lazy"
+          />
+          <div className="pin-overlay">
+            <button
+              className="pin-save-btn"
+              style={{ backgroundColor: isSaved ? "#111" : "var(--pinterest-red)" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const pinId = String(data._id || data.id);
+                if (onToggleSave) onToggleSave(e, pinId);
+              }}
+            >
+              {isSaved ? "Saved" : "Save"}
+            </button>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+              <div style={{ backgroundColor: "white", padding: "8px", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>📤</div>
+              <div style={{ backgroundColor: "white", padding: "8px", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>⋮</div>
+            </div>
+          </div>
+        </div>
       )}
-      <div style={{ padding: 8 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{data.title}</div>
-        {data.description && (
-          <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{data.description}</div>
-        )}
-      </div>
+      <div className="pin-title">{data.title || "Untitled"}</div>
     </div>
   );
 };

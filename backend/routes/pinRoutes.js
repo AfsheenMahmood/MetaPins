@@ -63,7 +63,7 @@ router.post("/", auth, upload.single("image"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const pins = await Pin.find()
-      .populate("user", "username name email")
+      .populate("user", "username name email avatarUrl")
       .sort({ createdAt: -1 });
 
     res.json(pins);

@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const upload = require("../middleware/upload");
+const cloudinary = require("../config/cloudinary");
 
 // Simple auth middleware
 const auth = (req, res, next) => {
@@ -32,14 +34,15 @@ router.get("/:username", async (req, res) => {
     }
 
     res.json({
+      id: user._id,
       username: user.username,
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
-      savedPins: user.savedPins.map(p => p._id),
-      uploaded: user.uploaded.map(p => p._id),
-      likes: user.likes.map(p => p._id),
-      moodBoard: user.moodBoard.map(p => p._id),
+      savedPins: (user.savedPins || []).map(p => p?._id || p),
+      uploaded: (user.uploaded || []).map(p => p?._id || p),
+      likes: (user.likes || []).map(p => p?._id || p),
+      moodBoard: (user.moodBoard || []).map(p => p?._id || p),
       createdAt: user.createdAt
     });
   } catch (err) {
@@ -85,6 +88,32 @@ router.put("/:username", auth, async (req, res) => {
   }
 });
 
+// Upload avatar
+router.post("/:username/avatar", auth, upload.single("image"), async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No image provided" });
+    }
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path);
+    user.avatarUrl = result.secure_url;
+    await user.save();
+
+    res.json({ message: "Avatar updated", avatarUrl: user.avatarUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to upload avatar" });
+  }
+});
+
 // Toggle like on a pin
 router.post("/:username/like/:pinId", auth, async (req, res) => {
   try {
@@ -99,7 +128,7 @@ router.post("/:username/like/:pinId", auth, async (req, res) => {
     }
 
     const pinId = req.params.pinId;
-    const index = user.likes.indexOf(pinId);
+    const index = user.likes.findIndex(id => id.toString() === pinId);
 
     if (index > -1) {
       // Unlike
@@ -131,7 +160,7 @@ router.post("/:username/save/:pinId", auth, async (req, res) => {
     }
 
     const pinId = req.params.pinId;
-    const index = user.savedPins.indexOf(pinId);
+    const index = user.savedPins.findIndex(id => id.toString() === pinId);
 
     if (index > -1) {
       // Unsave
@@ -163,7 +192,7 @@ router.post("/:username/moodboard/:pinId", auth, async (req, res) => {
     }
 
     const pinId = req.params.pinId;
-    const index = user.moodBoard.indexOf(pinId);
+    const index = user.moodBoard.findIndex(id => id.toString() === pinId);
 
     if (index > -1) {
       // Remove from mood board

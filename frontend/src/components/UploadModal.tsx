@@ -106,162 +106,139 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
   return (
     <div style={{
       position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)",
-      display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1400
+      display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1400,
+      backdropFilter: "blur(4px)"
     }}>
       <div style={{
-        width: "92%", maxWidth: 720, maxHeight: "90%", overflowY: "auto",
-        background: "#fff", borderRadius: 10, padding: 16, boxSizing: "border-box"
+        width: "92%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto",
+        background: "#fff", borderRadius: 32, padding: 40, boxSizing: "border-box",
+        boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", position: "relative"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>Upload a picture</h2>
-          <div>
-            <button onClick={onClose} disabled={uploading} style={{ padding: "6px 10px", cursor: uploading ? "not-allowed" : "pointer" }}>
-              Close
-            </button>
-          </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+          <h2 style={{ margin: 0, fontSize: "28px", fontWeight: "700" }}>Create a Pin</h2>
+          <button
+            onClick={onClose}
+            disabled={uploading}
+            style={{
+              background: "#efefef", border: "none", borderRadius: "50%",
+              width: "40px", height: "40px", cursor: "pointer", fontSize: "18px"
+            }}
+          >✕</button>
         </div>
 
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 280px", minWidth: 260 }}>
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+          {/* Left - Upload Area */}
+          <div style={{ flex: "1", minWidth: 300 }}>
             <div style={{
-              width: "100%",
-              height: 300,
-              border: "1px dashed #ddd",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-              background: "#fafafa"
+              width: "100%", height: 450, border: "2px dashed #dadada", borderRadius: 24,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden", background: "#efefef", cursor: "pointer", transition: "0.2s"
             }}>
               {preview ? (
                 <div style={{ position: "relative", width: "100%", height: "100%" }}>
                   <img src={preview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   {!uploading && (
                     <button
-                      onClick={() => {
-                        setFile(null);
-                        setPreview(null);
-                      }}
+                      onClick={() => { setFile(null); setPreview(null); }}
                       style={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        background: "rgba(0,0,0,0.6)",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "4px 8px",
-                        cursor: "pointer",
-                        fontSize: 12
+                        position: "absolute", top: 12, right: 12, background: "white",
+                        color: "#111", border: "none", borderRadius: "50%", width: "32px", height: "32px",
+                        cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
                       }}
-                    >
-                      Remove
-                    </button>
+                    >✕</button>
                   )}
                 </div>
               ) : (
-                <label style={{ textAlign: "center", cursor: "pointer" }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>📁</div>
-                  <div style={{ color: "#666" }}>Click to choose image</div>
+                <label style={{ textAlign: "center", cursor: "pointer", width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>⬆️</div>
+                  <div style={{ fontWeight: "600", fontSize: "16px" }}>Choose a file</div>
+                  <div style={{ color: "#767676", fontSize: "14px", marginTop: "8px" }}>We recommend high-quality .jpg files</div>
                   <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      setFile(f);
-                    }}
+                    type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0] ?? null; setFile(f); }}
                     disabled={uploading}
                   />
                 </label>
               )}
             </div>
-
-            {file && (
-              <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
-                <strong>File:</strong> {file.name} ({(file.size / 1024).toFixed(1)} KB)
-              </div>
-            )}
           </div>
 
-          <div style={{ flex: "1 1 320px", minWidth: 260 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Title *</label>
+          {/* Right - Form Area */}
+          <div style={{ flex: "1.2", minWidth: 300, display: "flex", flexDirection: "column" }}>
+            <div style={{ marginBottom: 20 }}>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Add your title"
+                style={{ ...titleInputStyle, borderBottom: "1px solid #ddd" }}
+                disabled={uploading}
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "#767676" }}>Description</div>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell everyone what your Pin is about"
+                rows={3}
                 style={inputStyle}
                 disabled={uploading}
               />
             </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                style={{ ...inputStyle, resize: "vertical" }}
-                disabled={uploading}
-              />
-            </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Tags (comma separated)</label>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "#767676" }}>Tags</div>
               <input
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 style={inputStyle}
-                placeholder="nature, sunset, beach"
+                placeholder="Add tags (nature, design, etc.)"
                 disabled={uploading}
               />
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 32 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Category</label>
+                <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "#767676" }}>Category</div>
                 <input
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   style={inputStyle}
-                  placeholder="Nature"
+                  placeholder="Design"
                   disabled={uploading}
                 />
               </div>
-              <div style={{ width: 110 }}>
-                <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Color</label>
+              <div style={{ width: 120 }}>
+                <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "#767676" }}>Color</div>
                 <input
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  placeholder="blue"
+                  placeholder="#ffffff"
                   style={inputStyle}
                   disabled={uploading}
                 />
               </div>
             </div>
 
-            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <div style={{ marginTop: "auto", display: "flex", justifyContent: "flex-end" }}>
               <button
                 onClick={submit}
-                disabled={uploading}
+                disabled={uploading || !file || !title}
                 style={{
-                  padding: "8px 12px",
-                  cursor: uploading ? "not-allowed" : "pointer",
-                  backgroundColor: uploading ? "#ccc" : "#646cff",
-                  color: "white",
+                  padding: "12px 24px",
+                  cursor: (uploading || !file || !title) ? "not-allowed" : "pointer",
+                  backgroundColor: (uploading || !file || !title) ? "#efefef" : "var(--pinterest-red)",
+                  color: (uploading || !file || !title) ? "#767676" : "white",
                   border: "none",
-                  borderRadius: 4
+                  borderRadius: 24,
+                  fontWeight: "700",
+                  fontSize: "16px",
+                  transition: "0.2s"
                 }}
               >
-                {uploading ? "Uploading..." : "Upload"}
-              </button>
-              <button
-                onClick={onClose}
-                disabled={uploading}
-                style={{ padding: "8px 12px", cursor: uploading ? "not-allowed" : "pointer" }}
-              >
-                Cancel
+                {uploading ? "Uploading..." : "Publish"}
               </button>
             </div>
           </div>
@@ -271,10 +248,23 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
   );
 };
 
+const titleInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "16px 0",
+  fontSize: "32px",
+  fontWeight: "700",
+  border: "none",
+  outline: "none",
+  fontFamily: "inherit",
+};
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "8px 10px",
-  borderRadius: 6,
+  padding: "12px 16px",
+  borderRadius: 16,
   border: "1px solid #ddd",
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  fontSize: "16px",
+  fontFamily: "inherit",
+  outline: "none",
 };

@@ -28,6 +28,7 @@ export type Pin = {
 };
 
 type User = {
+  id: string;
   username: string;
   uploaded: string[];
   savedPins: string[];
@@ -95,6 +96,7 @@ const App: React.FC = () => {
         console.log("User fetched:", res.data);
 
         setUser({
+          id: res.data.id,
           username: res.data.username,
           uploaded: res.data.uploaded || [],
           savedPins: res.data.savedPins || [],
@@ -157,13 +159,16 @@ const App: React.FC = () => {
     })
     : pins;
 
-  const handleCardContext = (e: React.MouseEvent, cardData: Pin) => {
-    e.preventDefault();
+  const handleCardContext = (e: React.MouseEvent | null, cardData: Pin) => {
+    if (e) e.preventDefault();
     const results = findSimilarPins(cardData as SimilarPin, pins as SimilarPin[], 12);
     setSimilarTarget(cardData as SimilarPin);
     setSimilarResults(results);
     setSimilarOpen(true);
   };
+
+  // Expose for Modal.tsx to trigger
+  (window as any).triggerSimilar = (data: any) => handleCardContext(null, data);
 
   const handleOpenPinFromSimilar = (pin: SimilarPin) => {
     const found = pins.find((p) => String(p.id) === String(pin.id));
@@ -177,11 +182,51 @@ const App: React.FC = () => {
     // User data will be fetched by useEffect
   };
 
+  const handleToggleSave = async (e: React.MouseEvent | null, pinId: string) => {
+    if (e) e.stopPropagation();
+    if (!user || !token) return;
+
+    const isSaved = user.savedPins.some((id: any) => String(id) === pinId || String(id?._id || id?.id || id) === pinId);
+    const newSaved = isSaved
+      ? user.savedPins.filter((id: any) => String(id) !== pinId && String(id?._id || id?.id || id) !== pinId)
+      : [...user.savedPins, pinId];
+
+    const optimisticUser = { ...user, savedPins: newSaved };
+    setUser(optimisticUser);
+
+    try {
+      await axios.post(
+        `${BACKEND_URL}/users/${user.username}/save/${pinId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Fetch latest user data to stay in sync
+      const res = await axios.get(`${BACKEND_URL}/users/${user.username}`);
+      setUser({
+        id: res.data.id,
+        username: res.data.username,
+        uploaded: res.data.uploaded || [],
+        savedPins: res.data.savedPins || [],
+        likes: res.data.likes || [],
+        moodBoard: res.data.moodBoard || [],
+        avatarUrl: res.data.avatarUrl || "",
+      });
+    } catch (err) {
+      console.error("Save toggle failed:", err);
+      // Revert optimistic update on failure
+      const revertSaved = !isSaved
+        ? user.savedPins.filter((id: string) => String(id) !== pinId)
+        : [...user.savedPins, pinId];
+      setUser({ ...user, savedPins: revertSaved });
+    }
+  };
+
   if (!user || !token)
     return <Auth onLogin={handleLogin} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg-color)" }}>
       <Header
         username={user.username}
         onHome={goHome}
@@ -192,13 +237,15 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main style={{ padding: "1rem" }} className="masonry-grid">
+      <main className="masonry-grid">
         {filteredPins.map((item) => (
-          <div key={item.id} className="masonry-item" style={{ marginBottom: 12 }}>
+          <div key={item.id} className="masonry-item">
             <Card
               data={item}
               onClick={() => setSelectedPin(item)}
               onContextMenu={(e) => handleCardContext(e, item)}
+              onToggleSave={handleToggleSave}
+              isSaved={user.savedPins.some((id: any) => String(id) === String(item._id || item.id) || String(id?._id || id?.id || id) === String(item._id || item.id))}
             />
           </div>
         ))}
@@ -210,13 +257,21 @@ const App: React.FC = () => {
         onClose={() => setSelectedPin(null)}
         username={user.username}
         token={token}
+        currentUser={user}
+        onUpdateUser={setUser}
       />
 
       <ProfileModal
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
-        username={user.username}
+        user={user}
+        token={token}
         pins={pins}
+        onUpdateUser={setUser}
+        onPinClick={(pin) => {
+          setSelectedPin(pin);
+          setShowProfile(false);
+        }}
       />
 
       <UploadModal

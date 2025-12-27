@@ -12,40 +12,32 @@ type ModalProps = {
   onClose: () => void;
   data: any;
   username: string;
-  token: string; // NEW - added token prop
+  token: string;
+  currentUser: any;
+  onUpdateUser: (user: any) => void;
 };
 
-const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+import { BASE_URL } from "../config";
+const BACKEND_URL = BASE_URL;
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token }) => {
-  const [userData, setUserData] = useState<any>(null);
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token, currentUser, onUpdateUser }) => {
+  const [userData, setUserData] = useState<any>(currentUser || null);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentObj[]>([]);
   const [loading, setLoading] = useState(false);
   const placeholderAvatar = "https://via.placeholder.com/40?text=U";
 
-  // Fetch user data when modal opens
+  // Keep internal userData in sync with prop
+  useEffect(() => {
+    if (currentUser) {
+      setUserData(currentUser);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     if (!data || !isOpen) return;
 
-    const fetchUserData = async () => {
-      try {
-        const res = await axios.get(`${BACKEND_URL}/users/${username}`);
-        setUserData({
-          username: res.data.username,
-          likes: res.data.likes || [],
-          savedPins: res.data.savedPins || [],
-          moodBoard: res.data.moodBoard || [],
-          avatarUrl: res.data.avatarUrl || "",
-        });
-      } catch (err) {
-        console.error("Failed to fetch user data:", err);
-      }
-    };
-
-    fetchUserData();
-
-    // Load comments from localStorage (we'll keep this as localStorage for now)
+    // Load comments from localStorage
     try {
       const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
       const pinId = String(data._id || data.id);
@@ -53,40 +45,62 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     } catch (err) {
       setComments([]);
     }
-  }, [data, username, isOpen]);
+  }, [data, isOpen]);
 
   if (!isOpen || !data || !userData) return null;
 
   const pinId = String(data._id || data.id);
+
+  // Helper for optimistic update
+  const optimisticUpdate = (field: "likes" | "savedPins" | "moodBoard", action: "add" | "remove") => {
+    setUserData((prev: any) => {
+      if (!prev) return prev;
+      const list = prev[field] || [];
+      const newList = action === "add"
+        ? [...list, pinId]
+        : list.filter((id: any) => String(id) !== pinId && String(id?._id || id?.id || id) !== pinId);
+
+      const newState = { ...prev, [field]: newList };
+      // Note: We'll call onUpdateUser AFTER this update happens in the toggle functions
+      return newState;
+    });
+  };
+
+  const syncWithServer = async () => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      const updated = {
+        username: res.data.username,
+        likes: res.data.likes || [],
+        savedPins: res.data.savedPins || [],
+        moodBoard: res.data.moodBoard || [],
+        avatarUrl: res.data.avatarUrl || "",
+      };
+      setUserData(updated);
+      onUpdateUser(updated);
+    } catch (err) {
+      console.error("Failed to sync user data:", err);
+    }
+  };
 
   // Toggle like
   const toggleLike = async () => {
     if (loading) return;
     setLoading(true);
 
+    const isLiked = liked;
+    optimisticUpdate("likes", isLiked ? "remove" : "add");
+
     try {
       await axios.post(
         `${BACKEND_URL}/users/${username}/like/${pinId}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      // Refresh user data
-      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
-      setUserData({
-        username: res.data.username,
-        likes: res.data.likes || [],
-        savedPins: res.data.savedPins || [],
-        moodBoard: res.data.moodBoard || [],
-        avatarUrl: res.data.avatarUrl || "",
-      });
-    } catch (err) {
+      await syncWithServer();
+    } catch (err: any) {
       console.error("Failed to toggle like:", err);
-      alert("Failed to update like");
+      optimisticUpdate("likes", isLiked ? "add" : "remove");
     } finally {
       setLoading(false);
     }
@@ -97,29 +111,19 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     if (loading) return;
     setLoading(true);
 
+    const isSaved = saved;
+    optimisticUpdate("savedPins", isSaved ? "remove" : "add");
+
     try {
       await axios.post(
         `${BACKEND_URL}/users/${username}/save/${pinId}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      // Refresh user data
-      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
-      setUserData({
-        username: res.data.username,
-        likes: res.data.likes || [],
-        savedPins: res.data.savedPins || [],
-        moodBoard: res.data.moodBoard || [],
-        avatarUrl: res.data.avatarUrl || "",
-      });
-    } catch (err) {
+      await syncWithServer();
+    } catch (err: any) {
       console.error("Failed to toggle save:", err);
-      alert("Failed to update save");
+      optimisticUpdate("savedPins", isSaved ? "add" : "remove");
     } finally {
       setLoading(false);
     }
@@ -130,29 +134,19 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     if (loading) return;
     setLoading(true);
 
+    const isInMoodBoard = inMoodBoard;
+    optimisticUpdate("moodBoard", isInMoodBoard ? "remove" : "add");
+
     try {
       await axios.post(
         `${BACKEND_URL}/users/${username}/moodboard/${pinId}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      // Refresh user data
-      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
-      setUserData({
-        username: res.data.username,
-        likes: res.data.likes || [],
-        savedPins: res.data.savedPins || [],
-        moodBoard: res.data.moodBoard || [],
-        avatarUrl: res.data.avatarUrl || "",
-      });
-    } catch (err) {
+      await syncWithServer();
+    } catch (err: any) {
       console.error("Failed to toggle mood board:", err);
-      alert("Failed to update mood board");
+      optimisticUpdate("moodBoard", isInMoodBoard ? "add" : "remove");
     } finally {
       setLoading(false);
     }
@@ -161,14 +155,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const addComment = () => {
     const txt = commentText.trim();
     if (!txt) return;
-    
+
     const newComment: CommentObj = {
       author: username,
       text: txt,
       createdAt: new Date().toISOString(),
     };
 
-    // Update global comments store in localStorage
     const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
     const current = Array.isArray(allComments[pinId]) ? [...allComments[pinId]] : [];
     const updated = [...current, newComment];
@@ -178,11 +171,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     setCommentText("");
   };
 
-  const liked = Array.isArray(userData.likes) && userData.likes.includes(pinId);
-  const saved = Array.isArray(userData.savedPins) && userData.savedPins.includes(pinId);
-  const inMoodBoard = Array.isArray(userData.moodBoard) && userData.moodBoard.includes(pinId);
+  const isIdInList = (list: any[], targetId: string) =>
+    Array.isArray(list) && list.some(id => String(id) === targetId || String(id?._id || id?.id || id) === targetId);
 
-  // helper to read user avatar by username
+  const liked = isIdInList(userData.likes, pinId);
+  const saved = isIdInList(userData.savedPins, pinId);
+  const inMoodBoard = isIdInList(userData.moodBoard, pinId);
+
   const getUserAvatar = (authorName: string) => {
     if (authorName === username && userData.avatarUrl) {
       return userData.avatarUrl;
@@ -194,95 +189,163 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
+      onClick={onClose}
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0,0,0,0.6)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
+        position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+        backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center",
+        zIndex: 1000, backdropFilter: "blur(5px)"
       }}
     >
       <div
+        onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "white",
-          padding: "1rem",
-          borderRadius: "8px",
-          width: "90%",
-          maxWidth: "700px",
-          maxHeight: "90%",
-          overflowY: "auto",
+          backgroundColor: "white", borderRadius: "32px", width: "90%", maxWidth: "1012px", height: "85vh",
+          display: "flex", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)"
         }}
       >
-        <button onClick={onClose} style={{ float: "right", fontSize: "1.2rem", cursor: "pointer" }} aria-label="Close">
-          ✖
-        </button>
-
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "0.5rem" }}>
-          <span>❤️ {liked ? "Liked" : "Like"}</span>
-          <span>💬 {comments.length} Comments</span>
-        </div>
-
-        {data.imageUrl && <img src={data.imageUrl} alt={data.title} style={{ width: "100%", borderRadius: "8px" }} />}
-        <h2 id="modal-title">{data.title}</h2>
-        <p>{data.description}</p>
-        {data.category && (
-          <p>
-            <strong>Category:</strong> {data.category}
-          </p>
-        )}
-        {data.tags && <p><strong>Tags:</strong> {data.tags.join(", ")}</p>}
-        {data.color && <p><strong>Color:</strong> {data.color}</p>}
-
-        <div style={{ display: "flex", gap: "1rem", margin: "1rem 0" }}>
-          <button onClick={toggleLike} disabled={loading}>
-            ❤️ {liked ? "Unlike" : "Like"}
-          </button>
-          <button onClick={toggleSave} disabled={loading}>
-            📌 {saved ? "Saved" : "Save"}
-          </button>
-          <button onClick={toggleMoodBoard} disabled={loading}>
-            {inMoodBoard ? "Remove from Mood Board" : "Add to Mood Board"}
-          </button>
-        </div>
-
-        <div>
-          <h3>Comments</h3>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {comments.map((c, i) => (
-              <li key={i} style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
-                <img src={getUserAvatar(c.author)} alt={`${c.author} avatar`} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                    {c.author} 
-                    <span style={{ fontSize: 12, fontWeight: 400, color: "#666", marginLeft: 8 }}>
-                      {new Date(c.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 14 }}>{c.text}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Add a comment"
-              style={{ flex: 1, padding: "0.5rem" }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addComment();
-              }}
-              aria-label="Add a comment"
+        {/* Left Side - Image */}
+        <div style={{ flex: "1.2", backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {data.imageUrl && (
+            <img
+              src={data.imageUrl}
+              alt={data.title}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
-            <button onClick={addComment}>Post</button>
+          )}
+        </div>
+
+        {/* Right Side - Details */}
+        <div style={{ flex: "1", padding: "32px", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+            <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+              <button
+                onClick={toggleLike}
+                style={{
+                  background: "none", border: "none", cursor: "pointer", fontSize: "28px",
+                  display: "flex", alignItems: "center", gap: "8px", color: liked ? "#e60023" : "#111"
+                }}
+              >
+                {liked ? "❤️" : "🤍"}
+                <span style={{ fontSize: "16px", fontWeight: "600" }}>{liked ? 1 : 0}</span>
+              </button>
+
+              <button
+                onClick={toggleMoodBoard}
+                title="Add to Moodboard"
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "28px", color: inMoodBoard ? "#e60023" : "#111" }}
+              >
+                {inMoodBoard ? "🧩" : "➕"}
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => {
+                  onClose();
+                  // We'll pass a new prop 'onFindSimilar' or similar
+                  if ((window as any).triggerSimilar) {
+                    (window as any).triggerSimilar(data);
+                  }
+                }}
+                title="Find Similar"
+                style={{
+                  background: "#efefef", border: "none", cursor: "pointer", fontSize: "20px",
+                  borderRadius: "50%", width: "48px", height: "48px",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "0.2s"
+                }}
+              >
+                🔍
+              </button>
+              <button
+                onClick={toggleSave}
+                style={{
+                  backgroundColor: saved ? "#111" : "#e60023",
+                  color: "white", border: "none", borderRadius: "24px", padding: "12px 24px",
+                  fontSize: "16px", fontWeight: "600", cursor: "pointer", transition: "0.2s"
+                }}
+              >
+                {saved ? "Saved" : "Save"}
+              </button>
+            </div>
+          </div>
+
+          <h1 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "12px", lineHeight: "1.2" }}>{data.title}</h1>
+          <p style={{ fontSize: "16px", color: "#111", marginBottom: "20px", lineHeight: "1.5" }}>{data.description}</p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px" }}>
+            {data.category && (
+              <span style={{ backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
+                {data.category}
+              </span>
+            )}
+            {data.tags && data.tags.map((tag: string, i: number) => (
+              <span key={i} style={{ backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px" }}>
+                #{tag}
+              </span>
+            ))}
+            {data.color && (
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px" }}>
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: data.color, border: "1px solid #ddd" }}></span>
+                {data.color}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ width: "48px", height: "48px", borderRadius: "50%", backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "600" }}>
+                {data.user?.username?.charAt(0).toUpperCase() || "U"}
+              </div>
+              <div>
+                <div style={{ fontWeight: "600", fontSize: "16px" }}>{data.user?.username || "Unknown"}</div>
+                <div style={{ fontSize: "14px", color: "#666" }}>0 followers</div>
+              </div>
+            </div>
+            <button style={{
+              backgroundColor: "#efefef", border: "none", borderRadius: "24px", padding: "12px 20px",
+              fontWeight: "600", cursor: "pointer"
+            }}>
+              Follow
+            </button>
+          </div>
+
+          <div style={{ marginTop: "auto" }}>
+            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px" }}>Comments</h3>
+
+            <div style={{ maxHeight: "200px", overflowY: "auto", marginBottom: "24px" }}>
+              {comments.length === 0 && <p style={{ color: "#767676", fontStyle: "italic" }}>No comments yet. Share your thoughts!</p>}
+              {comments.map((c, i) => (
+                <div key={i} style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+                  <img src={getUserAvatar(c.author)} alt="avatar" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                  <div>
+                    <div style={{ fontSize: "14px", lineHeight: "1.4" }}>
+                      <span style={{ fontWeight: "700", marginRight: "8px" }}>{c.author}</span>
+                      {c.text}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#767676", marginTop: "4px" }}>{new Date(c.createdAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", padding: "16px 0", borderTop: "1px solid #efefef" }}>
+              <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#efefef", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "600" }}>
+                {username[0]}
+              </div>
+              <input
+                type="text"
+                placeholder="Add a comment"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addComment()}
+                style={{
+                  flex: 1, padding: "12px 16px", borderRadius: "24px", border: "1px solid #ddd",
+                  outline: "none", fontSize: "16px", backgroundColor: "#f9f9f9"
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

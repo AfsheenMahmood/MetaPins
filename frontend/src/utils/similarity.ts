@@ -26,55 +26,68 @@ export function findSimilarPins(target: Pin, pins: Pin[], topN = 10, opts: Score
   } = opts;
 
   const normalize = (s?: string) => (s || "").toLowerCase().trim();
+  const getWords = (s?: string) => {
+    const text = normalize(s);
+    if (!text) return new Set<string>();
+    // Filter out common stop words for better matching
+    const stopWords = new Set(["a", "the", "an", "is", "are", "in", "on", "at", "to", "for", "with", "of", "and"]);
+    return new Set(text.split(/[\s,._-]+/).filter(w => w.length > 2 && !stopWords.has(w)));
+  };
 
   const targetTags = new Set((target.tags || []).map((t) => normalize(t)));
   const targetCategory = normalize(target.category);
   const targetColor = normalize(target.color);
-  const targetText = `${normalize(target.title)} ${normalize(target.description)}`;
+  const targetTitleWords = getWords(target.title);
+  const targetDescWords = getWords(target.description);
 
   const scorePin = (p: Pin) => {
-    if (!p || String(p.id) === String(target.id)) return -1;
+    const pid = String(p._id || p.id);
+    const tid = String(target._id || target.id);
+    if (!p || pid === tid) return -1;
 
     let score = 0;
 
-    // tag overlap
+    // 1. Tag overlap (High Weight)
     if (Array.isArray(p.tags) && p.tags.length && targetTags.size) {
-      const otherTags = p.tags.map((t) => normalize(t));
       let overlap = 0;
-      otherTags.forEach((t) => {
-        if (targetTags.has(t)) overlap++;
+      p.tags.forEach((t) => {
+        if (targetTags.has(normalize(t))) overlap++;
       });
-      score += overlap * tagWeight;
+      score += overlap * tagWeight * 2; // Extra weight for tags
     }
 
-    // category match
+    // 2. Category match
     if (targetCategory && normalize(p.category) === targetCategory) {
       score += categoryWeight;
     }
 
-    // color exact match (simple)
+    // 3. Color match
     if (targetColor && normalize(p.color) === targetColor) {
-      score += colorWeight;
+      score += colorWeight * 2;
     }
 
-    // text overlap (title/description words)
-    if (targetText.trim()) {
-      const otherText = `${normalize(p.title)} ${normalize(p.description)}`;
-      const targetWords = new Set(targetText.split(/\s+/).filter(Boolean));
-      let matchedWords = 0;
-      for (const w of otherText.split(/\s+/)) {
-        if (!w) continue;
-        if (targetWords.has(w)) matchedWords++;
-      }
-      score += matchedWords * textWeight;
-    }
+    // 4. Text overlap (Title & Description)
+    const otherTitleWords = getWords(p.title);
+    const otherDescWords = getWords(p.description);
+
+    let titleMatch = 0;
+    targetTitleWords.forEach(w => {
+      if (otherTitleWords.has(w)) titleMatch++;
+    });
+    score += titleMatch * textWeight * 2;
+
+    let descMatch = 0;
+    targetDescWords.forEach(w => {
+      if (otherDescWords.has(w)) descMatch++;
+    });
+    score += descMatch * textWeight;
 
     return score;
   };
 
   const scored = pins
     .map((p) => ({ pin: p, score: scorePin(p) }))
-    .filter((s) => s.score > 0) // only positive matches
+    .filter((s) => s.score > 1) // Higher threshold for quality
     .sort((a, b) => b.score - a.score)
     .slice(0, topN)
     .map((s) => s.pin);
