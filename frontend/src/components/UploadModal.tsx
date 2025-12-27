@@ -7,7 +7,8 @@ type UploadModalProps = {
   onSave: (pin: any) => void;
 };
 
-const BACKEND_URL = "https://metapibns-production.up.railway.app/api";
+import { BASE_URL } from "../config";
+const BACKEND_URL = BASE_URL;
 
 export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSave }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -68,7 +69,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
       formData.append("description", description.trim());
       formData.append("category", category.trim());
       formData.append("color", color.trim());
-      
+
       // Tags as comma-separated string
       const tagList = tags
         .split(",")
@@ -176,7 +177,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
                 </label>
               )}
             </div>
-            
+
             {file && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
                 <strong>File:</strong> {file.name} ({(file.size / 1024).toFixed(1)} KB)

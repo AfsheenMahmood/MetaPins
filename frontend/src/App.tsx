@@ -130,49 +130,17 @@ const App: React.FC = () => {
   };
 
   // Upload pin to backend
-  const handleUploadSave = async (newPin: Pin) => {
-    if (!token || !user) {
-      alert("You must be logged in to upload");
-      return;
-    }
+  // Handle successful upload from UploadModal
+  const handleUploadSave = (newPin: Pin) => {
+    setPins((prev) => [newPin, ...prev]);
 
-    try {
-      const payload = {
-        title: newPin.title,
-        description: newPin.description,
-        imageUrl: newPin.imageUrl,
-        category: newPin.category,
-        tags: newPin.tags,
-        color: newPin.color,
-      };
+    // Update user's uploaded array
+    setUser((prev) => prev ? {
+      ...prev,
+      uploaded: [newPin.id, ...prev.uploaded],
+    } : null);
 
-      const res = await axios.post(`${BACKEND_URL}/pins`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      // Normalize the response
-      const normalized = {
-        ...res.data,
-        id: res.data._id || res.data.id,
-      };
-
-      setPins((prev) => [normalized, ...prev]);
-
-      // Update user's uploaded array
-      setUser((prev) => prev ? {
-        ...prev,
-        uploaded: [normalized.id, ...prev.uploaded],
-      } : null);
-
-      setShowUpload(false);
-    } catch (err) {
-      console.error("Failed to upload pin:", err);
-      if (axios.isAxiosError(err)) {
-        alert(err.response?.data?.message || "Upload failed");
-      }
-    }
+    setShowUpload(false);
   };
 
   // Filter pins for search
