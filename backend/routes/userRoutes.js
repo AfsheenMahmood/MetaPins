@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const User = require("../models/user");
+const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 // Simple auth middleware
@@ -53,7 +53,7 @@ router.put("/:username", auth, async (req, res) => {
   try {
     // Ensure user can only update their own profile
     const user = await User.findOne({ username: req.params.username });
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -64,7 +64,7 @@ router.put("/:username", auth, async (req, res) => {
 
     // Update allowed fields
     const { name, avatarUrl } = req.body;
-    
+
     if (name) user.name = name;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
@@ -89,7 +89,7 @@ router.put("/:username", auth, async (req, res) => {
 router.post("/:username/like/:pinId", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -121,7 +121,7 @@ router.post("/:username/like/:pinId", auth, async (req, res) => {
 router.post("/:username/save/:pinId", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -153,7 +153,7 @@ router.post("/:username/save/:pinId", auth, async (req, res) => {
 router.post("/:username/moodboard/:pinId", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

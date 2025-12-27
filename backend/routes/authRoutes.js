@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
-const User = require("../models/user");
+const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 // Signup route
@@ -18,11 +18,11 @@ router.post("/signup", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    user = new User({ 
-      username, 
-      name, 
-      email, 
-      password: hashedPassword 
+    user = new User({
+      username,
+      name,
+      email,
+      password: hashedPassword
     });
     await user.save();
 
@@ -33,14 +33,14 @@ router.post("/signup", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: "User created successfully",
       token,
-      user: { 
-        id: user._id, 
+      user: {
+        id: user._id,
         username: user.username,
-        name: user.name, 
-        email: user.email 
+        name: user.name,
+        email: user.email
       }
     });
   } catch (error) {
@@ -69,10 +69,10 @@ router.post("/login", async (req, res) => {
     res.json({
       message: "Login successful",
       token,
-      user: { 
-        id: user._id, 
+      user: {
+        id: user._id,
         username: user.username,
-        name: user.name, 
+        name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl
       }
