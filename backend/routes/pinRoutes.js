@@ -4,6 +4,7 @@ const upload = require("../middleware/upload");
 const cloudinary = require("../config/cloudinary");
 const Pin = require("../models/Pin");
 const User = require("../models/User");
+const Comment = require("../models/Comment");
 const jwt = require("jsonwebtoken");
 
 // Simple auth middleware
@@ -112,6 +113,43 @@ router.get("/saved", auth, async (req, res) => {
     res.json(user.savedPins);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch saved pins" });
+  }
+});
+
+// Post a comment
+router.post("/:pinId/comments", auth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ message: "Comment text is required" });
+
+    const comment = new Comment({
+      pin: req.params.pinId,
+      user: req.user.id,
+      text
+    });
+
+    await comment.save();
+
+    // Populate user info
+    await comment.populate("user", "username avatarUrl");
+
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to post comment" });
+  }
+});
+
+// Get comments for a pin
+router.get("/:pinId/comments", async (req, res) => {
+  try {
+    const comments = await Comment.find({ pin: req.params.pinId })
+      .populate("user", "username avatarUrl")
+      .sort({ createdAt: 1 });
+
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch comments" });
   }
 });
 

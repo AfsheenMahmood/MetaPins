@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 type CommentObj = {
-  author: string;
+  user: {
+    username: string;
+    avatarUrl?: string;
+  };
   text: string;
   createdAt: string;
 };
@@ -37,14 +40,18 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   useEffect(() => {
     if (!data || !isOpen) return;
 
-    // Load comments from localStorage
-    try {
-      const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
-      const pinId = String(data._id || data.id);
-      setComments(Array.isArray(allComments[pinId]) ? allComments[pinId] : []);
-    } catch (err) {
-      setComments([]);
-    }
+    const fetchComments = async () => {
+      try {
+        const pinId = String(data._id || data.id);
+        const res = await axios.get(`${BACKEND_URL}/pins/${pinId}/comments`);
+        setComments(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Failed to fetch comments:", err);
+        setComments([]);
+      }
+    };
+
+    fetchComments();
   }, [data, isOpen]);
 
   if (!isOpen || !data || !userData) return null;
@@ -152,23 +159,22 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     }
   };
 
-  const addComment = () => {
+  const addComment = async () => {
     const txt = commentText.trim();
-    if (!txt) return;
+    if (!txt || !token) return;
 
-    const newComment: CommentObj = {
-      author: username,
-      text: txt,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/pins/${pinId}/comments`,
+        { text: txt },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    const allComments = JSON.parse(localStorage.getItem("comments") || "{}") as Record<string, CommentObj[]>;
-    const current = Array.isArray(allComments[pinId]) ? [...allComments[pinId]] : [];
-    const updated = [...current, newComment];
-    allComments[pinId] = updated;
-    localStorage.setItem("comments", JSON.stringify(allComments));
-    setComments(updated);
-    setCommentText("");
+      setComments((prev) => [...prev, res.data]);
+      setCommentText("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    }
   };
 
   const isIdInList = (list: any[], targetId: string) =>
@@ -178,10 +184,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const saved = isIdInList(userData.savedPins, pinId);
   const inMoodBoard = isIdInList(userData.moodBoard, pinId);
 
-  const getUserAvatar = (authorName: string) => {
-    if (authorName === username && userData.avatarUrl) {
-      return userData.avatarUrl;
-    }
+  const getUserAvatar = (commentUser: any) => {
+    if (commentUser.avatarUrl) return commentUser.avatarUrl;
     return placeholderAvatar;
   };
 
@@ -318,10 +322,10 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
               {comments.length === 0 && <p style={{ color: "#767676", fontStyle: "italic" }}>No comments yet. Share your thoughts!</p>}
               {comments.map((c, i) => (
                 <div key={i} style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
-                  <img src={getUserAvatar(c.author)} alt="avatar" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                  <img src={getUserAvatar(c.user)} alt="avatar" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
                   <div>
                     <div style={{ fontSize: "14px", lineHeight: "1.4" }}>
-                      <span style={{ fontWeight: "700", marginRight: "8px" }}>{c.author}</span>
+                      <span style={{ fontWeight: "700", marginRight: "8px" }}>{c.user.username}</span>
                       {c.text}
                     </div>
                     <div style={{ fontSize: "11px", color: "#767676", marginTop: "4px" }}>{new Date(c.createdAt).toLocaleDateString()}</div>
