@@ -66,15 +66,30 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     });
   };
 
+  const optimisticFollow = (authorId: string, action: "add" | "remove") => {
+    setUserData((prev: any) => {
+      if (!prev) return prev;
+      const following = prev.following || [];
+      const newFollowing = action === "add"
+        ? [...following, authorId]
+        : following.filter((id: any) => String(id) !== authorId && String(id?._id || id?.id || id) !== authorId);
+      return { ...prev, following: newFollowing };
+    });
+  };
+
   const syncWithServer = async () => {
     try {
       const res = await axios.get(`${BACKEND_URL}/users/${username}`);
       const updated = {
+        id: res.data.id,
         username: res.data.username,
+        name: res.data.name || "",
         likes: res.data.likes || [],
         savedPins: res.data.savedPins || [],
         moodBoard: res.data.moodBoard || [],
         following: res.data.following || [],
+        followersCount: res.data.followersCount || 0,
+        followingCount: res.data.followingCount || 0,
         avatarUrl: res.data.avatarUrl || "",
       };
       setUserData(updated);
@@ -134,11 +149,15 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     setLoading(true);
 
     const targetUsername = data.user.username;
+    const authorId = String(data.user._id || data.user.id);
     if (targetUsername === username) {
       alert("You cannot follow yourself.");
       setLoading(false);
       return;
     }
+
+    const isFollowingNow = isFollowing;
+    optimisticFollow(authorId, isFollowingNow ? "remove" : "add");
 
     try {
       await axios.post(`${BACKEND_URL}/users/${username}/follow/${targetUsername}`, {}, {
@@ -147,8 +166,21 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
       await syncWithServer();
     } catch (err) {
       console.error("Failed to toggle follow:", err);
+      optimisticFollow(authorId, isFollowingNow ? "add" : "remove");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addComment = async () => {
+    const txt = commentText.trim();
+    if (!txt || !token) return;
+    try {
+      const res = await axios.post(`${BACKEND_URL}/pins/${pinId}/comments`, { text: txt }, { headers: { Authorization: `Bearer ${token}` } });
+      setComments((prev) => [...prev, res.data]);
+      setCommentText("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
     }
   };
 
@@ -158,7 +190,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const liked = isIdInList(userData.likes, pinId);
   const saved = isIdInList(userData.savedPins, pinId);
   const inMoodBoard = isIdInList(userData.moodBoard, pinId);
-  const isFollowing = data.user?._id && isIdInList(userData.following, String(data.user._id));
+  const authorId = String(data.user?._id || data.user?.id || "");
+  const isFollowing = authorId && isIdInList(userData.following, authorId);
 
   return (
     <div
