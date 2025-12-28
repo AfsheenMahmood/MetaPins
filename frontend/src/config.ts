@@ -3,12 +3,24 @@
 const ENV_BACKEND_URL = import.meta.env.VITE_API_URL;
 const HARDCODED_BACKEND_URL = "https://metapins-production-c951.up.railway.app";
 
-export const BACKEND_URL = ENV_BACKEND_URL || HARDCODED_BACKEND_URL;
+// Validate and fix URL if needed
+let finalUrl = ENV_BACKEND_URL || HARDCODED_BACKEND_URL;
+
+// Fix common URL issues
+if (finalUrl && !finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+    console.warn('⚠️ Invalid URL detected, adding https://', finalUrl);
+    finalUrl = 'https://' + finalUrl;
+}
+
+export const BACKEND_URL = finalUrl;
 export const BASE_URL = `${BACKEND_URL}/api`;
 
-// Debug logging (will be removed in production build)
+// Debug logging
 console.log("🔧 Backend Configuration:", {
     envUrl: ENV_BACKEND_URL,
+    hardcodedUrl: HARDCODED_BACKEND_URL,
     finalUrl: BACKEND_URL,
-    baseUrl: BASE_URL
+    baseUrl: BASE_URL,
+    envVarType: typeof ENV_BACKEND_URL,
+    envVarValue: JSON.stringify(ENV_BACKEND_URL)
 });
