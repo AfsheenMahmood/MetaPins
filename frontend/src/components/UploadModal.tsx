@@ -91,7 +91,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
       onClose();
     } catch (err: any) {
       console.error("Upload failed:", err);
-      alert(err.response?.data?.message || "Upload failed. Please try again.");
+      console.error("Backend URL:", BACKEND_URL);
+      console.error("Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      alert(err.response?.data?.message || err.message || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -225,7 +231,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
                 <input
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  placeholder="#HexCode"
+                  placeholder="e.g. Blue"
                   style={inputStyle}
                   disabled={uploading}
                 />
