@@ -157,9 +157,11 @@ const App: React.FC = () => {
   };
 
   const onOpenPublicProfile = async (targetUserId: string | any) => {
+    if (!targetUserId) return;
+
     // If it's the current user, just open their profile
     const id = typeof targetUserId === "string" ? targetUserId : targetUserId._id || targetUserId.id;
-    if (id === user?.id) {
+    if (id && user?.id && String(id) === String(user.id)) {
       onOpenProfile();
       return;
     }
@@ -167,6 +169,10 @@ const App: React.FC = () => {
     try {
       // Find user by ID or use username if targetUserId is an object with username
       const searchParam = typeof targetUserId === "object" ? targetUserId.username : targetUserId;
+      if (!searchParam) {
+        console.warn("Cannot open profile: no username/id available", targetUserId);
+        return;
+      }
       const res = await axios.get(`${BACKEND_URL}/users/${searchParam}`);
       setPublicProfileUser(res.data);
       setShowPublicProfile(true);

@@ -489,7 +489,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
             {/* Sticky Comment Input */}
             <div style={{ display: "flex", gap: "16px", alignItems: "center", padding: "20px 0", borderTop: "1px solid var(--gray-light)", backgroundColor: "white" }}>
               <div style={{ width: "44px", height: "44px", borderRadius: "50%", backgroundColor: "var(--pinterest-red)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", boxShadow: "var(--shadow-sm)" }}>
-                {username[0]?.toUpperCase()}
+                {username ? username[0].toUpperCase() : "?"}
               </div>
               <input
                 type="text"

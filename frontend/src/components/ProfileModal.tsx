@@ -28,12 +28,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   const [newBoardTitle, setNewBoardTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen || !user) return null;
-
-  const isFollowing = currentUser && (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id));
-
   const fetchBoards = async () => {
-    if (!token) return;
+    if (!token || !user?.username) return;
     try {
       const res = await axios.get(`${BACKEND_URL}/users/${user.username}/boards`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -45,7 +41,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   };
 
   const handleCreateBoard = async () => {
-    if (!newBoardTitle.trim() || !token) return;
+    if (!newBoardTitle.trim() || !token || !user?.username) return;
     try {
       await axios.post(`${BACKEND_URL}/users/${user.username}/boards`, { title: newBoardTitle }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -59,11 +55,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   };
 
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && user?.username) {
       fetchBoards();
       setSelectedBoard(null);
     }
-  }, [isOpen, user.username]);
+  }, [isOpen, user?.username]);
+
+  if (!isOpen || !user) return null;
+
+  const isFollowing = currentUser && (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id));
 
   const toggleFollow = async () => {
     if (!token || !currentUser || loading) return;
