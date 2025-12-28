@@ -323,13 +323,10 @@ const App: React.FC = () => {
           if (publicProfileUser && publicProfileUser.username === updated.username) {
             setPublicProfileUser(updated);
           }
-          // If the update affects the current user (following counts), sync them
-          if (user && updated.username === user.username) {
-            setUser(updated);
-          }
         }}
         isPublic={true}
         currentUser={user}
+        onUpdateCurrentUser={setUser}
         onPinClick={(pin) => {
           setSelectedPin(pin);
           setShowPublicProfile(false);

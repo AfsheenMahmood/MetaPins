@@ -355,7 +355,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
                   if (!isFollowing) e.currentTarget.style.backgroundColor = "var(--gray-light)";
                 }}
               >
-                {isFollowing ? "Following" : "Follow"}
+                {isFollowing ? "Followed" : "Follow"}
               </button>
             )}
           </div>

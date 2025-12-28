@@ -302,13 +302,16 @@ router.post("/:username/boards/:boardId/add/:pinId", auth, async (req, res) => {
 // Toggle follow/unfollow
 router.post("/:username/follow/:targetUsername", auth, async (req, res) => {
   try {
+    console.log(`Follow request: ${req.params.username} -> ${req.params.targetUsername}`);
     const currentUser = await User.findOne({ username: req.params.username });
     const targetUser = await User.findOne({ username: req.params.targetUsername });
 
     if (!currentUser || !targetUser) {
+      console.log(`User not found: currentUser=${!!currentUser}, targetUser=${!!targetUser}`);
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log(`Comparing: currentUser._id=${currentUser._id} vs req.user.id=${req.user.id}`);
     if (currentUser._id.toString() !== req.user.id) {
       return res.status(403).json({ message: "Not authorized" });
     }

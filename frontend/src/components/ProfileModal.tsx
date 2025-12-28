@@ -16,9 +16,10 @@ type ProfileModalProps = {
   isPublic?: boolean;
   currentUser?: any;
   onNavigateToUser?: (user: any) => void;
+  onUpdateCurrentUser?: (user: any) => void;
 };
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser, onUpdateCurrentUser }) => {
   const [activeTab, setActiveTab] = useState<"created" | "saved" | "moodboard" | "followers" | "following">("created");
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,23 +27,27 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
 
   if (!isOpen || !user) return null;
 
-  const syncWithServer = async () => {
-    try {
-      const res = await axios.get(`${BACKEND_URL}/users/${user.username}`);
-      onUpdateUser(res.data);
-    } catch (err) {
-      console.error("Failed to sync profile:", err);
-    }
-  };
+  const isFollowing = currentUser && (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id));
 
   const toggleFollow = async () => {
     if (!token || !currentUser || loading) return;
     setLoading(true);
     try {
-      await axios.post(`${BACKEND_URL}/users/${currentUser.username}/follow/${user.username}`, {}, {
+      const res = await axios.post(`${BACKEND_URL}/users/${currentUser.username}/follow/${user.username}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      await syncWithServer();
+
+      // Update the public profile user with new follower count
+      onUpdateUser({ ...user, followersCount: res.data.followersCount });
+
+      // Update the logged-in user with new following list and count
+      if (onUpdateCurrentUser) {
+        onUpdateCurrentUser({
+          ...currentUser,
+          following: res.data.following,
+          followingCount: res.data.followingCount
+        });
+      }
     } catch (err) {
       console.error("Follow failed:", err);
     } finally {
@@ -178,9 +183,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
                 boxShadow: "var(--shadow-md)"
               }}
             >
-              {(currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id))
-                ? "Following"
-                : "Follow"}
+              {isFollowing ? "Followed" : "Follow"}
             </button>
           )}
         </div>
