@@ -100,13 +100,18 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
 
   const syncWithServer = async () => {
     try {
-      const res = await axios.get(`${BACKEND_URL}/users/${username}`);
+      const res = await axios.get(`${BACKEND_URL}/users/${username}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const mapPin = (p: any) => ({ ...p, id: p.id || p._id });
       const updated = {
         id: res.data.id,
         username: res.data.username,
         name: res.data.name || "",
+        uploaded: (res.data.uploaded || []).map(mapPin),
         likes: res.data.likes || [],
-        savedPins: res.data.savedPins || [],
+        savedPins: (res.data.savedPins || []).map(mapPin),
+        moodBoard: (res.data.moodBoard || []).map(mapPin), // Add legacy moodBoard
         following: res.data.following || [],
         followersCount: res.data.followersCount || 0,
         followingCount: res.data.followingCount || 0,

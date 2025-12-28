@@ -34,21 +34,25 @@ router.get("/:username", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if the requester is the owner
+    // Check if the requester is the owner (robust ID-based check)
     const isOwner = req.headers.authorization && (() => {
       try {
         const token = req.headers.authorization.split(" ")[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
-        return decoded.username === user.username;
-      } catch {
+        return String(decoded.id) === String(user._id);
+      } catch (err) {
+        console.error("isOwner check failed:", err.message);
         return false;
       }
     })();
 
+    // Always populate uploaded pins for visibility
+    await user.populate("uploaded");
+
     if (isOwner) {
       await user.populate("savedPins");
-      await user.populate("moodBoard");
       await user.populate("likes");
+      await user.populate("moodBoard"); // Restore legacy moodBoard population
     }
 
     res.json({
@@ -57,10 +61,10 @@ router.get("/:username", async (req, res) => {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
-      uploaded: (user.uploaded || []).map(p => p?._id || p),
-      savedPins: isOwner ? (user.savedPins || []).map(p => p?._id || p) : [],
+      uploaded: user.uploaded || [],
+      savedPins: isOwner ? (user.savedPins || []) : [],
+      moodBoard: isOwner ? (user.moodBoard || []) : [], // Include legacy moodBoard
       likes: isOwner ? (user.likes || []).map(p => p?._id || p) : [],
-      moodBoard: isOwner ? (user.moodBoard || []).map(p => p?._id || p) : [],
       followers: (user.followers || []).map(u => typeof u === "object" ? u : { _id: u }),
       following: (user.following || []).map(u => typeof u === "object" ? u : { _id: u }),
       followersCount: user.followersCount || 0,

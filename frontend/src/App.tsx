@@ -39,8 +39,9 @@ export type Board = {
 type User = {
   id: string;
   username: string;
-  uploaded: string[];
-  savedPins: string[];
+  uploaded: Pin[];
+  savedPins: Pin[];
+  moodBoard: Pin[];
   likes: string[];
   following: string[];
   followersCount: number;
@@ -114,11 +115,14 @@ const App: React.FC = () => {
         });
         console.log("User fetched:", res.data);
 
+        const mapPin = (p: any) => ({ ...p, id: p.id || p._id });
+
         setUser({
           id: res.data.id,
           username: res.data.username,
-          uploaded: res.data.uploaded || [],
-          savedPins: res.data.savedPins || [],
+          uploaded: (res.data.uploaded || []).map(mapPin),
+          savedPins: (res.data.savedPins || []).map(mapPin),
+          moodBoard: (res.data.moodBoard || []).map(mapPin), // Restore legacy moodBoard
           likes: res.data.likes || [],
           following: res.data.following || [],
           followersCount: res.data.followersCount || 0,
@@ -180,10 +184,10 @@ const App: React.FC = () => {
   const handleUploadSave = (newPin: Pin) => {
     setPins((prev) => [newPin, ...prev]);
 
-    // Update user's uploaded array
+    // Update user's uploaded array with the full object
     setUser((prev) => prev ? {
       ...prev,
-      uploaded: [newPin.id, ...prev.uploaded],
+      uploaded: [newPin, ...prev.uploaded],
     } : null);
 
     setShowUpload(false);
@@ -228,12 +232,13 @@ const App: React.FC = () => {
     if (e) e.stopPropagation();
     if (!user || !token) return;
 
-    const isSaved = user.savedPins.some((id: any) => String(id) === pinId || String(id?._id || id?.id || id) === pinId);
+    const pin = pins.find(p => String(p.id) === pinId);
+    const isSaved = user.savedPins.some((p: any) => String(p.id || p._id) === pinId);
     const newSaved = isSaved
-      ? user.savedPins.filter((id: any) => String(id) !== pinId && String(id?._id || id?.id || id) !== pinId)
-      : [...user.savedPins, pinId];
+      ? user.savedPins.filter((p: any) => String(p.id || p._id) !== pinId)
+      : (pin ? [...user.savedPins, pin] : user.savedPins);
 
-    const optimisticUser = { ...user, savedPins: newSaved };
+    const optimisticUser = { ...user, savedPins: newSaved } as User;
     setUser(optimisticUser);
 
     try {
@@ -247,11 +252,13 @@ const App: React.FC = () => {
       const res = await axios.get(`${BACKEND_URL}/users/${user.username}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const mapPin = (p: any) => ({ ...p, id: p.id || p._id });
       setUser({
         id: res.data.id,
         username: res.data.username,
-        uploaded: res.data.uploaded || [],
-        savedPins: res.data.savedPins || [],
+        uploaded: (res.data.uploaded || []).map(mapPin),
+        savedPins: (res.data.savedPins || []).map(mapPin),
+        moodBoard: (res.data.moodBoard || []).map(mapPin), // Restore legacy moodBoard
         likes: res.data.likes || [],
         following: res.data.following || [],
         followersCount: res.data.followersCount || 0,
@@ -263,8 +270,8 @@ const App: React.FC = () => {
       console.error("Save toggle failed:", err);
       // Revert optimistic update on failure
       const revertSaved = !isSaved
-        ? user.savedPins.filter((id: string) => String(id) !== pinId)
-        : [...user.savedPins, pinId];
+        ? user.savedPins.filter((p: any) => String(p.id || p._id) !== pinId)
+        : (pin ? [...user.savedPins, pin] : user.savedPins);
       setUser({ ...user, savedPins: revertSaved });
     }
   };
@@ -315,7 +322,6 @@ const App: React.FC = () => {
         onClose={() => setShowProfile(false)}
         user={user}
         token={token}
-        pins={pins}
         onUpdateUser={setUser}
         onPinClick={(pin) => {
           setSelectedPin(pin);
@@ -329,7 +335,6 @@ const App: React.FC = () => {
         onClose={() => setShowPublicProfile(false)}
         user={publicProfileUser}
         token={token}
-        pins={pins}
         onUpdateUser={(updated) => {
           // If the profile being updated is the public one, update it
           if (publicProfileUser && publicProfileUser.username === updated.username) {

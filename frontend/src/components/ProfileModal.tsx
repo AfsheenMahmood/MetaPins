@@ -10,7 +10,6 @@ type ProfileModalProps = {
   onClose: () => void;
   user: any; // Full user object
   token: string | null;
-  pins: Pin[];
   onUpdateUser: (updatedUser: any) => void;
   onPinClick: (pin: Pin) => void;
   isPublic?: boolean;
@@ -19,8 +18,8 @@ type ProfileModalProps = {
   onUpdateCurrentUser?: (user: any) => void;
 };
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser, onUpdateCurrentUser }) => {
-  const [activeTab, setActiveTab] = useState<"created" | "saved" | "boards" | "followers" | "following">("created");
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser, onUpdateCurrentUser }) => {
+  const [activeTab, setActiveTab] = useState<"created" | "saved" | "moodboard" | "boards" | "followers" | "following">("created");
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [boards, setBoards] = useState<any[]>([]);
@@ -122,17 +121,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
 
   const displayPins = (() => {
     if (selectedBoard) return selectedBoard.pins || [];
-    const list = pins || [];
-    if (activeTab === "created") {
-      return list.filter(p =>
-        (user.uploaded || []).some((id: any) => String(id) === String(p.id)) ||
-        String(p.user?._id || p.user?.id || p.user) === String(user.id) ||
-        p.user?.username === user.username
-      );
-    }
-    if (activeTab === "saved" && !isPublic) {
-      return list.filter(p => (user.savedPins || []).some((id: any) => String(id) === String(p.id)));
-    }
+    if (activeTab === "created") return user.uploaded || [];
+    if (activeTab === "saved" && !isPublic) return user.savedPins || [];
+    if (activeTab === "moodboard" && !isPublic) return user.moodBoard || [];
     return [];
   })();
   const avatarUrl = user.avatarUrl || `https://via.placeholder.com/150?text=${user.username[0].toUpperCase()}`;
@@ -236,6 +227,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
               style={tabBtnStyle(activeTab === "saved")}
             >
               Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
+            </button>
+          )}
+          {!isPublic && (user.moodBoard || []).length > 0 && (
+            <button
+              onClick={() => setActiveTab("moodboard")}
+              className={`tab-btn ${activeTab === "moodboard" ? "active" : ""}`}
+              style={tabBtnStyle(activeTab === "moodboard")}
+            >
+              Moodboard <span style={counterStyle(activeTab === "moodboard")}>{(user.moodBoard || []).length}</span>
             </button>
           )}
           {!isPublic && (
