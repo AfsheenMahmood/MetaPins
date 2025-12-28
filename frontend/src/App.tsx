@@ -63,6 +63,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [similarOpen, setSimilarOpen] = useState(false);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Public Profile state
   const [publicProfileUser, setPublicProfileUser] = useState<any>(null);
@@ -77,7 +78,8 @@ const App: React.FC = () => {
 
     if (savedToken && savedUsername) {
       setToken(savedToken);
-      // Will trigger user fetch in next useEffect
+    } else {
+      setInitialLoading(false);
     }
   }, []);
 
@@ -132,10 +134,11 @@ const App: React.FC = () => {
         });
       } catch (err) {
         console.error("Failed to fetch user:", err);
-        // If fetch fails, token might be invalid
         if (axios.isAxiosError(err) && err.response?.status === 401) {
           handleLogout();
         }
+      } finally {
+        setInitialLoading(false);
       }
     };
     fetchUser();
@@ -275,6 +278,17 @@ const App: React.FC = () => {
       setUser({ ...user, savedPins: revertSaved });
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--bg-color)" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "48px", marginBottom: "20px", animation: "pulse 1.5s infinite" }}>M</div>
+          <div style={{ color: "var(--text-secondary)", fontWeight: "500" }}>Loading your inspirations...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || !token)
     return <Auth onLogin={handleLogin} />;

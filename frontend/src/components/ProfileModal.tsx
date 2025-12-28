@@ -126,7 +126,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
     if (activeTab === "moodboard" && !isPublic) return user.moodBoard || [];
     return [];
   })();
-  const avatarUrl = user.avatarUrl || `https://via.placeholder.com/150?text=${user.username[0].toUpperCase()}`;
+
+  const safeUsername = user?.username || "Guest";
+  const avatarUrl = user?.avatarUrl || `https://via.placeholder.com/150?text=${safeUsername[0].toUpperCase()}`;
 
   return (
     <div style={overlayStyle} onClick={onClose}>

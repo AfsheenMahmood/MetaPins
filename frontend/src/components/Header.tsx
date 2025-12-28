@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
             onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--gray-hover)"}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = "transparent"}
           >
-            {username?.charAt(0).toUpperCase()}
+            {username ? username.charAt(0).toUpperCase() : "?"}
           </div>
 
           <div style={{ position: "relative" }} ref={menuRef}>
@@ -112,9 +112,9 @@ export const Header: React.FC<HeaderProps> = ({
                   style={{ ...menuBtnStyle, borderRadius: "12px", padding: "10px 12px" }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--gray-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>{username[0]}</div>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--gray-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>{username ? username[0].toUpperCase() : "?"}</div>
                     <div style={{ textAlign: "left" }}>
-                      <div style={{ fontWeight: "700", color: "var(--text-primary)" }}>{username}</div>
+                      <div style={{ fontWeight: "700", color: "var(--text-primary)" }}>{username || "User"}</div>
                       <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Personal Profile</div>
                     </div>
                   </div>
