@@ -53,6 +53,10 @@ const App: React.FC = () => {
   const [similarOpen, setSimilarOpen] = useState(false);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
 
+  // Public Profile state
+  const [publicProfileUser, setPublicProfileUser] = useState<any>(null);
+  const [showPublicProfile, setShowPublicProfile] = useState(false);
+
 
 
   // Check for existing token on mount
@@ -129,7 +133,29 @@ const App: React.FC = () => {
   };
 
   const onUpload = () => setShowUpload(true);
-  const onOpenProfile = () => setShowProfile(true);
+  const onOpenProfile = () => {
+    setPublicProfileUser(null);
+    setShowProfile(true);
+  };
+
+  const onOpenPublicProfile = async (targetUserId: string | any) => {
+    // If it's the current user, just open their profile
+    const id = typeof targetUserId === "string" ? targetUserId : targetUserId._id || targetUserId.id;
+    if (id === user?.id) {
+      onOpenProfile();
+      return;
+    }
+
+    try {
+      // Find user by ID or use username if targetUserId is an object with username
+      const searchParam = typeof targetUserId === "object" ? targetUserId.username : targetUserId;
+      const res = await axios.get(`${BACKEND_URL}/users/${searchParam}`);
+      setPublicProfileUser(res.data);
+      setShowPublicProfile(true);
+    } catch (err) {
+      console.error("Failed to fetch public profile:", err);
+    }
+  };
 
   const handleLogout = () => {
     setUser(null);
@@ -268,8 +294,10 @@ const App: React.FC = () => {
         token={token}
         currentUser={user}
         onUpdateUser={setUser}
+        onOpenProfile={onOpenPublicProfile}
       />
 
+      {/* Auth-user Profile */}
       <ProfileModal
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
@@ -281,6 +309,32 @@ const App: React.FC = () => {
           setSelectedPin(pin);
           setShowProfile(false);
         }}
+      />
+
+      {/* Public Profile */}
+      <ProfileModal
+        isOpen={showPublicProfile}
+        onClose={() => setShowPublicProfile(false)}
+        user={publicProfileUser}
+        token={token}
+        pins={pins}
+        onUpdateUser={(updated) => {
+          // If the profile being updated is the public one, update it
+          if (publicProfileUser && publicProfileUser.username === updated.username) {
+            setPublicProfileUser(updated);
+          }
+          // If the update affects the current user (following counts), sync them
+          if (user && updated.username === user.username) {
+            setUser(updated);
+          }
+        }}
+        isPublic={true}
+        currentUser={user}
+        onPinClick={(pin) => {
+          setSelectedPin(pin);
+          setShowPublicProfile(false);
+        }}
+        onNavigateToUser={onOpenPublicProfile}
       />
 
       <UploadModal

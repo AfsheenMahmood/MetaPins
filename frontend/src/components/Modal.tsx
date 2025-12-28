@@ -18,12 +18,13 @@ type ModalProps = {
   token: string;
   currentUser: any;
   onUpdateUser: (user: any) => void;
+  onOpenProfile?: (user: any) => void;
 };
 
 import { BASE_URL } from "../config";
 const BACKEND_URL = BASE_URL;
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token, currentUser, onUpdateUser }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token, currentUser, onUpdateUser, onOpenProfile }) => {
   const [userData, setUserData] = useState<any>(currentUser || null);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentObj[]>([]);
@@ -317,7 +318,14 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
           </div>
 
           {/* User Profile Hook */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0", borderTop: "1px solid var(--gray-light)", marginBottom: "40px" }}>
+          <div
+            onClick={() => onOpenProfile && onOpenProfile(data.user)}
+            style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "24px 0", borderTop: "1px solid var(--gray-light)", marginBottom: "40px",
+              cursor: onOpenProfile ? "pointer" : "default"
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "var(--gray-light)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "20px", boxShadow: "var(--shadow-sm)" }}>
                 {data.user?.username?.charAt(0).toUpperCase() || "U"}
@@ -329,7 +337,10 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
             </div>
             {data.user?.username !== username && (
               <button
-                onClick={toggleFollow}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFollow();
+                }}
                 disabled={loading}
                 style={{
                   backgroundColor: isFollowing ? "var(--text-primary)" : "var(--gray-light)",

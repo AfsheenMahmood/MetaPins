@@ -29,6 +29,8 @@ router.get("/:username", async (req, res) => {
       .populate("uploaded")
       .populate("likes")
       .populate("moodBoard")
+      .populate("followers", "username name avatarUrl")
+      .populate("following", "username name avatarUrl")
       .select("-password"); // Don't send password
 
     if (!user) {
@@ -45,8 +47,8 @@ router.get("/:username", async (req, res) => {
       uploaded: (user.uploaded || []).map(p => p?._id || p),
       likes: (user.likes || []).map(p => p?._id || p),
       moodBoard: (user.moodBoard || []).map(p => p?._id || p),
-      followers: (user.followers || []).map(u => u?._id || u),
-      following: (user.following || []).map(u => u?._id || u),
+      followers: (user.followers || []).map(u => typeof u === "object" ? u : { _id: u }),
+      following: (user.following || []).map(u => typeof u === "object" ? u : { _id: u }),
       followersCount: user.followersCount || 0,
       followingCount: user.followingCount || 0,
       createdAt: user.createdAt

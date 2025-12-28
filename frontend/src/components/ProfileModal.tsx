@@ -13,14 +13,42 @@ type ProfileModalProps = {
   pins: Pin[];
   onUpdateUser: (updatedUser: any) => void;
   onPinClick: (pin: Pin) => void;
+  isPublic?: boolean;
+  currentUser?: any;
+  onNavigateToUser?: (user: any) => void;
 };
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick }) => {
-  const [activeTab, setActiveTab] = useState<"created" | "saved" | "moodboard">("created");
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser }) => {
+  const [activeTab, setActiveTab] = useState<"created" | "saved" | "moodboard" | "followers" | "following">("created");
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen || !user) return null;
+
+  const syncWithServer = async () => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/users/${user.username}`);
+      onUpdateUser(res.data);
+    } catch (err) {
+      console.error("Failed to sync profile:", err);
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (!token || !currentUser || loading) return;
+    setLoading(true);
+    try {
+      await axios.post(`${BACKEND_URL}/users/${currentUser.username}/follow/${user.username}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await syncWithServer();
+    } catch (err) {
+      console.error("Follow failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
@@ -115,21 +143,46 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
           </div>
 
           <h2 style={{ fontSize: "36px", fontWeight: "800", marginTop: "20px", marginBottom: "4px", color: "var(--text-primary)", letterSpacing: "-1px" }}>{user.name || user.username}</h2>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <span style={{ color: "var(--text-secondary)", fontSize: "16px", fontWeight: "600" }}>@{user.username}</span>
             <span style={{ fontSize: "14px", color: "var(--pinterest-red)", fontWeight: "800", background: "#fee2e2", padding: "2px 8px", borderRadius: "6px" }}>PRO</span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: "24px", color: "var(--text-primary)", fontSize: "15px", fontWeight: "700" }}>
-            <div style={{ display: "flex", gap: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: "24px", color: "var(--text-primary)", fontSize: "15px", fontWeight: "700", marginBottom: "24px" }}>
+            <div
+              onClick={() => setActiveTab("followers")}
+              style={{ display: "flex", gap: "6px", cursor: "pointer" }}
+            >
               <span>{user.followersCount || 0}</span>
               <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>followers</span>
             </div>
-            <div style={{ display: "flex", gap: "6px" }}>
+            <div
+              onClick={() => setActiveTab("following")}
+              style={{ display: "flex", gap: "6px", cursor: "pointer" }}
+            >
               <span>{user.followingCount || 0}</span>
               <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>following</span>
             </div>
           </div>
+
+          {isPublic && currentUser && currentUser.username !== user.username && (
+            <button
+              onClick={toggleFollow}
+              disabled={loading}
+              style={{
+                backgroundColor: (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id))
+                  ? "var(--text-primary)"
+                  : "var(--pinterest-red)",
+                color: "white", borderRadius: "30px", padding: "12px 32px", fontSize: "16px",
+                fontWeight: "700", border: "none", cursor: "pointer", transition: "0.2s",
+                boxShadow: "var(--shadow-md)"
+              }}
+            >
+              {(currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id))
+                ? "Following"
+                : "Follow"}
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "32px", marginBottom: "40px", borderBottom: "1px solid var(--gray-light)", paddingBottom: "4px" }}>
@@ -147,50 +200,88 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
           >
             Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
           </button>
-          <button
-            onClick={() => setActiveTab("moodboard")}
-            className={`tab-btn ${activeTab === "moodboard" ? "active" : ""}`}
-            style={tabBtnStyle(activeTab === "moodboard")}
-          >
-            Moodboard <span style={counterStyle(activeTab === "moodboard")}>{(user.moodBoard || []).length}</span>
-          </button>
+          {!isPublic && (
+            <button
+              onClick={() => setActiveTab("moodboard")}
+              className={`tab-btn ${activeTab === "moodboard" ? "active" : ""}`}
+              style={tabBtnStyle(activeTab === "moodboard")}
+            >
+              Moodboard <span style={counterStyle(activeTab === "moodboard")}>{(user.moodBoard || []).length}</span>
+            </button>
+          )}
         </div>
 
-        <div style={gridStyle}>
-          {displayPins.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "80px 40px", color: "var(--text-secondary)", animation: "fadeIn 0.5s" }}>
-              <div style={{ fontSize: "40px", marginBottom: "16px" }}>🏜️</div>
-              <p style={{ fontSize: "18px", fontWeight: "600", color: "var(--text-primary)" }}>Your collection is whisper quiet.</p>
-              <p style={{ fontSize: "14px", marginBottom: "24px" }}>Start exploring to build your digital heritage.</p>
-              <button
-                onClick={onClose}
-                style={{
-                  backgroundColor: "var(--text-primary)", color: "white", borderRadius: "30px",
-                  padding: "14px 28px", border: "none", cursor: "pointer", fontWeight: "700", boxShadow: "var(--shadow-md)"
-                }}
-              >
-                Browse Collections
-              </button>
+        <div style={{ flex: 1 }}>
+          {(activeTab === "followers" || activeTab === "following") ? (
+            <div style={{ maxWidth: "600px", margin: "0 auto", animation: "fadeIn 0.4s" }}>
+              <h3 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
+              {(user[activeTab] || []).length === 0 ? (
+                <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: "40px" }}>No users found here yet.</p>
+              ) : (
+                user[activeTab].map((u: any) => (
+                  <div
+                    key={u._id || u.id}
+                    onClick={() => onNavigateToUser && onNavigateToUser(u)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "16px", padding: "12px",
+                      borderRadius: "16px", cursor: "pointer", transition: "0.2s"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--gray-light)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <img
+                      src={u.avatarUrl || `https://via.placeholder.com/40?text=${u.username?.[0]?.toUpperCase()}`}
+                      alt="avatar"
+                      style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: "700", color: "var(--text-primary)" }}>{u.name || u.username}</div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>@{u.username}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div style={gridStyle}>
+              {displayPins.length === 0 && (
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "80px 40px", color: "var(--text-secondary)", animation: "fadeIn 0.5s" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "16px" }}>🏜️</div>
+                  <p style={{ fontSize: "18px", fontWeight: "600", color: "var(--text-primary)" }}>Your collection is whisper quiet.</p>
+                  <p style={{ fontSize: "14px", marginBottom: "24px" }}>Start exploring to build your digital heritage.</p>
+                  {!isPublic && (
+                    <button
+                      onClick={onClose}
+                      style={{
+                        backgroundColor: "var(--text-primary)", color: "white", borderRadius: "30px",
+                        padding: "14px 28px", border: "none", cursor: "pointer", fontWeight: "700", boxShadow: "var(--shadow-md)"
+                      }}
+                    >
+                      Browse Collections
+                    </button>
+                  )}
+                </div>
+              )}
+              {displayPins.map((pin, i) => (
+                <div
+                  key={pin.id}
+                  className="pin-card"
+                  style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
+                  onClick={() => onPinClick(pin)}
+                >
+                  <div style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "var(--shadow-sm)", transition: "all 0.3s" }}>
+                    <img
+                      src={pin.imageUrl}
+                      alt={pin.title || "Pin"}
+                      style={{ width: "100%", objectFit: "cover", display: "block", transition: "all 0.4s" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-          {displayPins.map((pin, i) => (
-            <div
-              key={pin.id}
-              className="pin-card"
-              style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
-              onClick={() => onPinClick(pin)}
-            >
-              <div style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "var(--shadow-sm)", transition: "all 0.3s" }}>
-                <img
-                  src={pin.imageUrl}
-                  alt={pin.title || "Pin"}
-                  style={{ width: "100%", objectFit: "cover", display: "block", transition: "all 0.4s" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
