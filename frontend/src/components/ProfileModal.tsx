@@ -34,8 +34,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   const isFollowing = currentUser && (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id));
 
   const fetchBoards = async () => {
+    if (!token) return;
     try {
-      const res = await axios.get(`${BACKEND_URL}/users/${user.username}/boards`);
+      const res = await axios.get(`${BACKEND_URL}/users/${user.username}/boards`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setBoards(res.data);
     } catch (err) {
       console.error("Failed to fetch boards:", err);
@@ -235,13 +238,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
               Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
             </button>
           )}
-          <button
-            onClick={() => { setActiveTab("boards"); setSelectedBoard(null); }}
-            className={`tab-btn ${activeTab === "boards" ? "active" : ""}`}
-            style={tabBtnStyle(activeTab === "boards")}
-          >
-            Boards <span style={counterStyle(activeTab === "boards")}>{boards.length}</span>
-          </button>
+          {!isPublic && (
+            <button
+              onClick={() => { setActiveTab("boards"); setSelectedBoard(null); }}
+              className={`tab-btn ${activeTab === "boards" ? "active" : ""}`}
+              style={tabBtnStyle(activeTab === "boards")}
+            >
+              Boards <span style={counterStyle(activeTab === "boards")}>{boards.length}</span>
+            </button>
+          )}
         </div>
 
         <div style={{ flex: 1 }}>

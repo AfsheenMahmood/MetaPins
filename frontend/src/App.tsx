@@ -109,7 +109,9 @@ const App: React.FC = () => {
       if (!token || !savedUsername) return;
 
       try {
-        const res = await axios.get(`${BACKEND_URL}/users/${savedUsername}`);
+        const res = await axios.get(`${BACKEND_URL}/users/${savedUsername}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         console.log("User fetched:", res.data);
 
         setUser({
@@ -242,7 +244,9 @@ const App: React.FC = () => {
       );
 
       // Fetch latest user data to stay in sync
-      const res = await axios.get(`${BACKEND_URL}/users/${user.username}`);
+      const res = await axios.get(`${BACKEND_URL}/users/${user.username}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUser({
         id: res.data.id,
         username: res.data.username,

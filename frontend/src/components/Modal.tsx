@@ -59,7 +59,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const fetchBoards = async () => {
     if (!token || !username) return;
     try {
-      const res = await axios.get(`${BACKEND_URL}/users/${username}/boards`);
+      const res = await axios.get(`${BACKEND_URL}/users/${username}/boards`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setBoards(res.data);
     } catch (err) {
       console.error("Failed to fetch boards:", err);

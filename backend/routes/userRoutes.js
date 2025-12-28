@@ -285,6 +285,21 @@ router.get("/:username/boards", async (req, res) => {
     const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Privacy Check: Only owner can see boards
+    const isOwner = req.headers.authorization && (() => {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
+        return decoded.username === user.username;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (!isOwner) {
+      return res.json([]); // Return empty for anyone else
+    }
+
     const boards = await Board.find({ user: user._id }).populate("pins");
     res.json(boards);
   } catch (err) {
