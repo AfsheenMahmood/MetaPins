@@ -30,6 +30,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSav
     reader.readAsDataURL(file);
   }, [file]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("📋 Upload Modal State:", {
+      hasFile: !!file,
+      hasTitle: !!title,
+      titleValue: title,
+      buttonDisabled: uploading || !file || !title
+    });
+  }, [file, title, uploading]);
+
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
