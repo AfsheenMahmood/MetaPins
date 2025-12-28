@@ -7,7 +7,6 @@ import { Header } from "./components/Header";
 import { ProfileModal } from "./components/ProfileModal";
 import { UploadModal } from "./components/UploadModal";
 import SimilarModal from "./components/SimilarModal";
-import { findSimilarPins } from "./utils/similarity";
 import type { Pin as SimilarPin } from "./utils/similarity";
 
 import { BASE_URL } from "./config";
@@ -34,7 +33,11 @@ type User = {
   savedPins: string[];
   likes: string[];
   moodBoard: string[];
+  following: string[];
+  followersCount: number;
+  followingCount: number;
   avatarUrl?: string;
+  name?: string;
 };
 
 const App: React.FC = () => {
@@ -48,7 +51,6 @@ const App: React.FC = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [similarOpen, setSimilarOpen] = useState(false);
-  const [similarResults, setSimilarResults] = useState<SimilarPin[]>([]);
   const [similarTarget, setSimilarTarget] = useState<SimilarPin | null>(null);
 
 
@@ -64,11 +66,12 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Fetch all pins
+  // Fetch all pins (Personalized if logged in)
   useEffect(() => {
     const fetchPins = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}/pins`);
+        const url = user ? `${BACKEND_URL}/pins?userId=${user.id}` : `${BACKEND_URL}/pins`;
+        const res = await axios.get(url);
         console.log("Pins fetched:", res.data);
 
         // Normalize pin IDs (_id from MongoDB to id for frontend)
@@ -83,7 +86,7 @@ const App: React.FC = () => {
       }
     };
     fetchPins();
-  }, []);
+  }, [user?.id]); // Refetch when user logs in/out to get personalized feed
 
   // Fetch user data when token exists
   useEffect(() => {
@@ -102,7 +105,11 @@ const App: React.FC = () => {
           savedPins: res.data.savedPins || [],
           likes: res.data.likes || [],
           moodBoard: res.data.moodBoard || [],
+          following: res.data.following || [],
+          followersCount: res.data.followersCount || 0,
+          followingCount: res.data.followingCount || 0,
           avatarUrl: res.data.avatarUrl || "",
+          name: res.data.name || "",
         });
       } catch (err) {
         console.error("Failed to fetch user:", err);
@@ -161,9 +168,7 @@ const App: React.FC = () => {
 
   const handleCardContext = (e: React.MouseEvent | null, cardData: Pin) => {
     if (e) e.preventDefault();
-    const results = findSimilarPins(cardData as SimilarPin, pins as SimilarPin[], 12);
     setSimilarTarget(cardData as SimilarPin);
-    setSimilarResults(results);
     setSimilarOpen(true);
   };
 
@@ -210,7 +215,11 @@ const App: React.FC = () => {
         savedPins: res.data.savedPins || [],
         likes: res.data.likes || [],
         moodBoard: res.data.moodBoard || [],
+        following: res.data.following || [],
+        followersCount: res.data.followersCount || 0,
+        followingCount: res.data.followingCount || 0,
         avatarUrl: res.data.avatarUrl || "",
+        name: res.data.name || "",
       });
     } catch (err) {
       console.error("Save toggle failed:", err);
@@ -283,8 +292,7 @@ const App: React.FC = () => {
       <SimilarModal
         isOpen={similarOpen}
         onClose={() => setSimilarOpen(false)}
-        initialPin={similarTarget}
-        results={similarResults}
+        targetPin={similarTarget}
         onOpenPin={handleOpenPinFromSimilar}
       />
     </div>

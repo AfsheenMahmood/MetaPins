@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Pin = require("../models/Pin");
+const Board = require("../models/Board");
 const jwt = require("jsonwebtoken");
 const upload = require("../middleware/upload");
 const cloudinary = require("../config/cloudinary");
@@ -43,6 +45,10 @@ router.get("/:username", async (req, res) => {
       uploaded: (user.uploaded || []).map(p => p?._id || p),
       likes: (user.likes || []).map(p => p?._id || p),
       moodBoard: (user.moodBoard || []).map(p => p?._id || p),
+      followers: (user.followers || []).map(u => u?._id || u),
+      following: (user.following || []).map(u => u?._id || u),
+      followersCount: (user.followers || []).length,
+      followingCount: (user.following || []).length,
       createdAt: user.createdAt
     });
   } catch (err) {
@@ -139,7 +145,22 @@ router.post("/:username/like/:pinId", auth, async (req, res) => {
     }
 
     await user.save();
-    res.json({ message: "Like toggled", likes: user.likes });
+
+    // Analytics: Update user interests based on pin category
+    const pin = await Pin.findById(pinId);
+    if (pin && pin.category) {
+      const currentScore = user.interests.get(pin.category) || 0;
+      const points = index > -1 ? -1 : 1;
+      user.interests.set(pin.category, Math.max(0, currentScore + points));
+      await user.save();
+    }
+
+    // Update Pin model likesCount
+    await Pin.findByIdAndUpdate(pinId, {
+      $inc: { likesCount: index > -1 ? -1 : 1 }
+    });
+
+    res.json({ message: "Like toggled", likes: user.likes, interests: user.interests });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to toggle like" });
@@ -171,7 +192,22 @@ router.post("/:username/save/:pinId", auth, async (req, res) => {
     }
 
     await user.save();
-    res.json({ message: "Save toggled", savedPins: user.savedPins });
+
+    // Analytics: Update user interests based on pin category
+    const pin = await Pin.findById(pinId);
+    if (pin && pin.category) {
+      const currentScore = user.interests.get(pin.category) || 0;
+      const points = index > -1 ? -1 : 2; // Saving gives more interest points
+      user.interests.set(pin.category, Math.max(0, currentScore + points));
+      await user.save();
+    }
+
+    // Update Pin model savedCount
+    await Pin.findByIdAndUpdate(pinId, {
+      $inc: { savedCount: index > -1 ? -1 : 1 }
+    });
+
+    res.json({ message: "Save toggled", savedPins: user.savedPins, interests: user.interests });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to toggle save" });
@@ -207,6 +243,102 @@ router.post("/:username/moodboard/:pinId", auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to toggle mood board" });
+  }
+});
+
+// Board Routes
+// Create a new board
+router.post("/:username/boards", auth, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+    const board = new Board({
+      title,
+      description,
+      user: req.user.id
+    });
+    await board.save();
+    res.status(201).json(board);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to create board" });
+  }
+});
+
+// Get user boards
+router.get("/:username/boards", async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const boards = await Board.find({ user: user._id }).populate("pins");
+    res.json(boards);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch boards" });
+  }
+});
+
+// Add pin to board
+router.post("/:username/boards/:boardId/add/:pinId", auth, async (req, res) => {
+  try {
+    const board = await Board.findById(req.params.boardId);
+    if (!board) return res.status(404).json({ message: "Board not found" });
+
+    if (board.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (!board.pins.includes(req.params.pinId)) {
+      board.pins.push(req.params.pinId);
+      await board.save();
+    }
+
+    res.json(board);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to add to board" });
+  }
+});
+
+// Toggle follow/unfollow
+router.post("/:username/follow/:targetUsername", auth, async (req, res) => {
+  try {
+    const currentUser = await User.findOne({ username: req.params.username });
+    const targetUser = await User.findOne({ username: req.params.targetUsername });
+
+    if (!currentUser || !targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (currentUser._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (currentUser._id.toString() === targetUser._id.toString()) {
+      return res.status(400).json({ message: "You cannot follow yourself" });
+    }
+
+    const followingIndex = currentUser.following.findIndex(id => id.toString() === targetUser._id.toString());
+    const followersIndex = targetUser.followers.findIndex(id => id.toString() === currentUser._id.toString());
+
+    if (followingIndex > -1) {
+      // Unfollow
+      currentUser.following.splice(followingIndex, 1);
+      if (followersIndex > -1) targetUser.followers.splice(followersIndex, 1);
+    } else {
+      // Follow
+      currentUser.following.push(targetUser._id);
+      targetUser.followers.push(currentUser._id);
+    }
+
+    await currentUser.save();
+    await targetUser.save();
+
+    res.json({
+      message: followingIndex > -1 ? "Unfollowed" : "Followed",
+      following: currentUser.following,
+      followersCount: targetUser.followers.length
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to toggle follow" });
   }
 });
 

@@ -41,16 +41,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
           }
         }
       );
-
-      // Update local user state
       onUpdateUser({ ...user, avatarUrl: res.data.avatarUrl });
     } catch (err: any) {
       console.error("Failed to upload avatar:", err);
-      if (err.response && err.response.status === 404) {
-        alert("Avatar upload failed: The backend does not support this feature yet. If you are using the production server, please redeploy your backend code.");
-      } else {
-        alert("Failed to upload avatar: " + (err.response?.data?.message || err.message));
-      }
+      alert("Failed to upload avatar: " + (err.response?.data?.message || err.message));
     } finally {
       setUploading(false);
     }
@@ -75,91 +69,126 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   };
 
   const displayPins = getDisplayPins();
-  const avatarUrl = user.avatarUrl || "https://via.placeholder.com/150?text=U";
+  const avatarUrl = user.avatarUrl || `https://via.placeholder.com/150?text=${user.username[0].toUpperCase()}`;
 
   return (
-    <div style={overlayStyle}>
-      <div style={contentStyle}>
-        <button onClick={onClose} style={closeButtonStyle}>✕</button>
+    <div style={overlayStyle} onClick={onClose}>
+      <div
+        className="glass"
+        style={contentStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          style={closeButtonStyle}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--gray-hover)"}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--gray-light)"}
+        >✕</button>
 
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
           <div style={{ position: "relative", display: "inline-block" }}>
-            <div style={{ width: "120px", height: "120px", borderRadius: "50%", overflow: "hidden", border: "1px solid #ddd" }}>
+            <div style={{
+              width: "140px", height: "140px", borderRadius: "50%", overflow: "hidden",
+              border: "4px solid white", boxShadow: "var(--shadow-md)", background: "var(--gray-light)"
+            }}>
               <img
                 src={avatarUrl}
                 alt="avatar"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", transition: "all 0.4s" }}
               />
             </div>
             <div
-              title="Change Avatar"
+              title="Change Profile Photo"
               onClick={() => fileInputRef.current?.click()}
               style={{
-                position: "absolute", bottom: 4, right: 4,
-                backgroundColor: "white", borderRadius: "50%", width: "32px", height: "32px",
+                position: "absolute", bottom: "8px", right: "8px",
+                backgroundColor: "white", borderRadius: "50%", width: "40px", height: "40px",
                 cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "1px solid #ddd"
+                boxShadow: "var(--shadow-md)", transition: "all 0.2s"
               }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
             >
-              ✏️
+              📷
             </div>
             <input disabled={uploading} type="file" ref={fileInputRef} hidden onChange={handleFileChange} accept="image/*" />
           </div>
 
-          <h2 style={{ fontSize: "32px", fontWeight: "700", marginTop: "16px", marginBottom: "4px" }}>{user.name || user.username}</h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: "16px" }}>@{user.username}</p>
+          <h2 style={{ fontSize: "36px", fontWeight: "800", marginTop: "20px", marginBottom: "4px", color: "var(--text-primary)", letterSpacing: "-1px" }}>{user.name || user.username}</h2>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: "16px", fontWeight: "600" }}>@{user.username}</span>
+            <span style={{ fontSize: "14px", color: "var(--pinterest-red)", fontWeight: "800", background: "#fee2e2", padding: "2px 8px", borderRadius: "6px" }}>PRO</span>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center", gap: "24px", color: "var(--text-primary)", fontSize: "15px", fontWeight: "700" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <span>{user.followersCount || 0}</span>
+              <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>followers</span>
+            </div>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <span>{user.followingCount || 0}</span>
+              <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>following</span>
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginBottom: "32px", borderBottom: "1px solid #efefef", paddingBottom: "12px" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "32px", marginBottom: "40px", borderBottom: "1px solid var(--gray-light)", paddingBottom: "4px" }}>
           <button
             onClick={() => setActiveTab("created")}
             className={`tab-btn ${activeTab === "created" ? "active" : ""}`}
-            style={{ fontSize: "16px", fontWeight: "600", display: "flex", alignItems: "center", gap: "8px" }}
+            style={tabBtnStyle(activeTab === "created")}
           >
-            Created <span style={{ opacity: 0.6, fontSize: "14px" }}>{(user.uploaded || []).length}</span>
+            Created <span style={counterStyle(activeTab === "created")}>{(user.uploaded || []).length}</span>
           </button>
           <button
             onClick={() => setActiveTab("saved")}
             className={`tab-btn ${activeTab === "saved" ? "active" : ""}`}
-            style={{ fontSize: "16px", fontWeight: "600", display: "flex", alignItems: "center", gap: "8px" }}
+            style={tabBtnStyle(activeTab === "saved")}
           >
-            Saved <span style={{ opacity: 0.6, fontSize: "14px" }}>{(user.savedPins || []).length}</span>
+            Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
           </button>
           <button
             onClick={() => setActiveTab("moodboard")}
             className={`tab-btn ${activeTab === "moodboard" ? "active" : ""}`}
-            style={{ fontSize: "16px", fontWeight: "600", display: "flex", alignItems: "center", gap: "8px" }}
+            style={tabBtnStyle(activeTab === "moodboard")}
           >
-            Moodboard <span style={{ opacity: 0.6, fontSize: "14px" }}>{(user.moodBoard || []).length}</span>
+            Moodboard <span style={counterStyle(activeTab === "moodboard")}>{(user.moodBoard || []).length}</span>
           </button>
         </div>
 
         <div style={gridStyle}>
           {displayPins.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px", color: "var(--text-secondary)" }}>
-              <p style={{ fontSize: "18px" }}>No pins here yet.</p>
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "80px 40px", color: "var(--text-secondary)", animation: "fadeIn 0.5s" }}>
+              <div style={{ fontSize: "40px", marginBottom: "16px" }}>🏜️</div>
+              <p style={{ fontSize: "18px", fontWeight: "600", color: "var(--text-primary)" }}>Your collection is whisper quiet.</p>
+              <p style={{ fontSize: "14px", marginBottom: "24px" }}>Start exploring to build your digital heritage.</p>
               <button
                 onClick={onClose}
-                className="tab-btn"
-                style={{ backgroundColor: "#efefef", borderRadius: "24px", padding: "12px 24px", marginTop: "12px", border: "none", cursor: "pointer", fontWeight: "600" }}
+                style={{
+                  backgroundColor: "var(--text-primary)", color: "white", borderRadius: "30px",
+                  padding: "14px 28px", border: "none", cursor: "pointer", fontWeight: "700", boxShadow: "var(--shadow-md)"
+                }}
               >
-                Go find some ideas
+                Browse Collections
               </button>
             </div>
           )}
-          {displayPins.map((pin) => (
+          {displayPins.map((pin, i) => (
             <div
               key={pin.id}
-              style={pinCardStyle}
+              className="pin-card"
+              style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
               onClick={() => onPinClick(pin)}
             >
-              <img
-                src={pin.imageUrl}
-                alt={pin.title || "Pin"}
-                style={{ width: "100%", borderRadius: "16px", objectFit: "cover", display: "block", transition: "0.2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.8)")}
-                onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
-              />
+              <div style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "var(--shadow-sm)", transition: "all 0.3s" }}>
+                <img
+                  src={pin.imageUrl}
+                  alt={pin.title || "Pin"}
+                  style={{ width: "100%", objectFit: "cover", display: "block", transition: "all 0.4s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -168,28 +197,46 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   );
 };
 
-// Styles
 const overlayStyle: React.CSSProperties = {
-  position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-  backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100,
-  backdropFilter: "blur(4px)"
+  position: "fixed", inset: 0,
+  backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100,
+  backdropFilter: "blur(12px)", padding: "20px"
 };
 
 const contentStyle: React.CSSProperties = {
-  backgroundColor: "white", padding: "48px 32px 32px", borderRadius: "32px",
-  width: "90%", maxWidth: "800px", height: "85vh", overflowY: "auto", position: "relative"
+  backgroundColor: "rgba(255, 255, 255, 0.98)", padding: "64px 40px 40px", borderRadius: "40px",
+  width: "100%", maxWidth: "1000px", height: "90vh", overflowY: "auto", position: "relative",
+  boxShadow: "var(--shadow-lg)", animation: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)"
 };
 
 const closeButtonStyle: React.CSSProperties = {
-  position: "absolute", top: "24px", right: "24px", background: "#efefef", border: "none",
-  fontSize: "18px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%",
-  display: "flex", alignItems: "center", justifyContent: "center"
+  position: "absolute", top: "32px", right: "32px", background: "var(--gray-light)", border: "none",
+  fontSize: "16px", cursor: "pointer", width: "44px", height: "44px", borderRadius: "50%",
+  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s"
 };
 
 const gridStyle: React.CSSProperties = {
-  display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px",
+  display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "24px",
 };
 
-const pinCardStyle: React.CSSProperties = {
-  cursor: "zoom-in",
-};
+const tabBtnStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: "16px",
+  fontWeight: "700",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  paddingBottom: "12px",
+  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+  borderBottom: active ? "3px solid var(--text-primary)" : "3px solid transparent",
+  transition: "all 0.2s"
+});
+
+const counterStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: "12px",
+  background: active ? "var(--text-primary)" : "var(--gray-light)",
+  color: active ? "white" : "var(--text-secondary)",
+  padding: "2px 10px",
+  borderRadius: "10px",
+  transition: "all 0.2s"
+});
+

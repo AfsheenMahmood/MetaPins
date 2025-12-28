@@ -30,11 +30,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const [loading, setLoading] = useState(false);
   const placeholderAvatar = "https://via.placeholder.com/40?text=U";
 
-  // Keep internal userData in sync with prop
   useEffect(() => {
-    if (currentUser) {
-      setUserData(currentUser);
-    }
+    if (currentUser) setUserData(currentUser);
   }, [currentUser]);
 
   useEffect(() => {
@@ -58,7 +55,6 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
 
   const pinId = String(data._id || data.id);
 
-  // Helper for optimistic update
   const optimisticUpdate = (field: "likes" | "savedPins" | "moodBoard", action: "add" | "remove") => {
     setUserData((prev: any) => {
       if (!prev) return prev;
@@ -66,10 +62,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
       const newList = action === "add"
         ? [...list, pinId]
         : list.filter((id: any) => String(id) !== pinId && String(id?._id || id?.id || id) !== pinId);
-
-      const newState = { ...prev, [field]: newList };
-      // Note: We'll call onUpdateUser AFTER this update happens in the toggle functions
-      return newState;
+      return { ...prev, [field]: newList };
     });
   };
 
@@ -81,6 +74,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
         likes: res.data.likes || [],
         savedPins: res.data.savedPins || [],
         moodBoard: res.data.moodBoard || [],
+        following: res.data.following || [],
         avatarUrl: res.data.avatarUrl || "",
       };
       setUserData(updated);
@@ -90,90 +84,71 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     }
   };
 
-  // Toggle like
   const toggleLike = async () => {
     if (loading) return;
     setLoading(true);
-
     const isLiked = liked;
     optimisticUpdate("likes", isLiked ? "remove" : "add");
-
     try {
-      await axios.post(
-        `${BACKEND_URL}/users/${username}/like/${pinId}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(`${BACKEND_URL}/users/${username}/like/${pinId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       await syncWithServer();
-    } catch (err: any) {
-      console.error("Failed to toggle like:", err);
+    } catch (err) {
       optimisticUpdate("likes", isLiked ? "add" : "remove");
     } finally {
       setLoading(false);
     }
   };
 
-  // Toggle save
   const toggleSave = async () => {
     if (loading) return;
     setLoading(true);
-
     const isSaved = saved;
     optimisticUpdate("savedPins", isSaved ? "remove" : "add");
-
     try {
-      await axios.post(
-        `${BACKEND_URL}/users/${username}/save/${pinId}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(`${BACKEND_URL}/users/${username}/save/${pinId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       await syncWithServer();
-    } catch (err: any) {
-      console.error("Failed to toggle save:", err);
+    } catch (err) {
       optimisticUpdate("savedPins", isSaved ? "add" : "remove");
     } finally {
       setLoading(false);
     }
   };
 
-  // Toggle mood board
   const toggleMoodBoard = async () => {
     if (loading) return;
     setLoading(true);
-
     const isInMoodBoard = inMoodBoard;
     optimisticUpdate("moodBoard", isInMoodBoard ? "remove" : "add");
-
     try {
-      await axios.post(
-        `${BACKEND_URL}/users/${username}/moodboard/${pinId}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(`${BACKEND_URL}/users/${username}/moodboard/${pinId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       await syncWithServer();
-    } catch (err: any) {
-      console.error("Failed to toggle mood board:", err);
+    } catch (err) {
       optimisticUpdate("moodBoard", isInMoodBoard ? "add" : "remove");
     } finally {
       setLoading(false);
     }
   };
 
-  const addComment = async () => {
-    const txt = commentText.trim();
-    if (!txt || !token) return;
+  const toggleFollow = async () => {
+    if (loading || !data.user?.username) return;
+    setLoading(true);
+
+    const targetUsername = data.user.username;
+    if (targetUsername === username) {
+      alert("You cannot follow yourself.");
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await axios.post(
-        `${BACKEND_URL}/pins/${pinId}/comments`,
-        { text: txt },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setComments((prev) => [...prev, res.data]);
-      setCommentText("");
+      await axios.post(`${BACKEND_URL}/users/${username}/follow/${targetUsername}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await syncWithServer();
     } catch (err) {
-      console.error("Failed to add comment:", err);
+      console.error("Failed to toggle follow:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -183,11 +158,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const liked = isIdInList(userData.likes, pinId);
   const saved = isIdInList(userData.savedPins, pinId);
   const inMoodBoard = isIdInList(userData.moodBoard, pinId);
-
-  const getUserAvatar = (commentUser: any) => {
-    if (commentUser.avatarUrl) return commentUser.avatarUrl;
-    return placeholderAvatar;
-  };
+  const isFollowing = data.user?._id && isIdInList(userData.following, String(data.user._id));
 
   return (
     <div
@@ -195,159 +166,200 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
       aria-modal="true"
       onClick={onClose}
       style={{
-        position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-        backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center",
-        zIndex: 1000, backdropFilter: "blur(5px)"
+        position: "fixed", inset: 0,
+        backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center",
+        zIndex: 1000, backdropFilter: "blur(12px)", padding: "20px"
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "white", borderRadius: "32px", width: "90%", maxWidth: "1012px", height: "85vh",
-          display: "flex", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)"
+          backgroundColor: "white", borderRadius: "40px", width: "100%", maxWidth: "1012px", height: "90vh",
+          display: "flex", overflow: "hidden", boxShadow: "var(--shadow-lg)",
+          animation: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)"
         }}
       >
-        {/* Left Side - Image */}
-        <div style={{ flex: "1.2", backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* Left Side - Image Container */}
+        <div style={{ flex: "1.2", backgroundColor: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", borderRight: "1px solid var(--gray-light)" }}>
           {data.imageUrl && (
             <img
               src={data.imageUrl}
               alt={data.title}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain", padding: "20px" }}
             />
           )}
         </div>
 
-        {/* Right Side - Details */}
-        <div style={{ flex: "1", padding: "32px", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+        {/* Right Side - Information Panel */}
+        <div style={{ flex: "1", padding: "40px", display: "flex", flexDirection: "column", overflowY: "auto", position: "relative" }}>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-            <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          {/* Top Actions Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
+            <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
               <button
                 onClick={toggleLike}
+                title={liked ? "Unlike" : "Like"}
                 style={{
-                  background: "none", border: "none", cursor: "pointer", fontSize: "28px",
-                  display: "flex", alignItems: "center", gap: "8px", color: liked ? "#e60023" : "#111"
+                  background: "none", border: "none", cursor: "pointer", fontSize: "24px",
+                  display: "flex", alignItems: "center", gap: "10px", color: liked ? "var(--pinterest-red)" : "var(--text-primary)",
+                  transition: "transform 0.2s"
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
               >
-                {liked ? "❤️" : "🤍"}
-                <span style={{ fontSize: "16px", fontWeight: "600" }}>{liked ? 1 : 0}</span>
+                <span style={{ filter: liked ? "none" : "grayscale(100%) opacity(0.6)" }}>{liked ? "❤️" : "🤍"}</span>
+                <span style={{ fontSize: "16px", fontWeight: "700" }}>{liked ? 1 : 0}</span>
               </button>
 
               <button
                 onClick={toggleMoodBoard}
-                title="Add to Moodboard"
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "28px", color: inMoodBoard ? "#e60023" : "#111" }}
+                title="Save to Moodboard"
+                style={{
+                  background: inMoodBoard ? "var(--gray-hover)" : "var(--gray-light)",
+                  border: "none", cursor: "pointer", fontSize: "20px",
+                  width: "44px", height: "44px", borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.1)";
+                  e.currentTarget.style.backgroundColor = "var(--gray-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor = inMoodBoard ? "var(--gray-hover)" : "var(--gray-light)";
+                }}
               >
                 {inMoodBoard ? "🧩" : "➕"}
               </button>
             </div>
 
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "12px" }}>
               <button
                 onClick={() => {
                   onClose();
-                  // We'll pass a new prop 'onFindSimilar' or similar
-                  if ((window as any).triggerSimilar) {
-                    (window as any).triggerSimilar(data);
-                  }
+                  if ((window as any).triggerSimilar) (window as any).triggerSimilar(data);
                 }}
-                title="Find Similar"
+                title="Find Related Patterns"
                 style={{
-                  background: "#efefef", border: "none", cursor: "pointer", fontSize: "20px",
+                  background: "var(--gray-light)", border: "none", cursor: "pointer", fontSize: "20px",
                   borderRadius: "50%", width: "48px", height: "48px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "0.2s"
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
                 }}
-              >
-                🔍
-              </button>
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--gray-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--gray-light)"}
+              >🔍</button>
+
               <button
                 onClick={toggleSave}
                 style={{
-                  backgroundColor: saved ? "#111" : "#e60023",
-                  color: "white", border: "none", borderRadius: "24px", padding: "12px 24px",
-                  fontSize: "16px", fontWeight: "600", cursor: "pointer", transition: "0.2s"
+                  backgroundColor: saved ? "var(--text-primary)" : "var(--pinterest-red)",
+                  color: "white", border: "none", borderRadius: "var(--border-radius-btn)",
+                  padding: "0 28px", height: "48px", fontSize: "16px", fontWeight: "700", cursor: "pointer",
+                  boxShadow: "var(--shadow-md)", transition: "all 0.2s"
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
               >
                 {saved ? "Saved" : "Save"}
               </button>
             </div>
           </div>
 
-          <h1 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "12px", lineHeight: "1.2" }}>{data.title}</h1>
-          <p style={{ fontSize: "16px", color: "#111", marginBottom: "20px", lineHeight: "1.5" }}>{data.description}</p>
+          <h1 style={{ fontSize: "36px", fontWeight: "700", marginBottom: "16px", letterSpacing: "-1px", lineHeight: "1.1", color: "var(--text-primary)" }}>{data.title}</h1>
+          <p style={{ fontSize: "17px", color: "var(--text-primary)", marginBottom: "24px", lineHeight: "1.6", opacity: 0.9 }}>{data.description}</p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px" }}>
+          {/* Tags & Categories Panel */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "32px" }}>
             {data.category && (
-              <span style={{ backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
+              <span style={{ background: "linear-gradient(135deg, var(--gray-light) 0%, #fff 100%)", padding: "8px 16px", borderRadius: "30px", fontSize: "13px", fontWeight: "700", border: "1px solid var(--gray-hover)" }}>
                 {data.category}
               </span>
             )}
             {data.tags && data.tags.map((tag: string, i: number) => (
-              <span key={i} style={{ backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px" }}>
+              <span key={i} style={{ background: "var(--gray-light)", padding: "8px 16px", borderRadius: "30px", fontSize: "13px", fontWeight: "500", color: "var(--text-secondary)" }}>
                 #{tag}
               </span>
             ))}
-            {data.color && (
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#efefef", padding: "6px 14px", borderRadius: "16px", fontSize: "12px" }}>
-                <span style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: data.color, border: "1px solid #ddd" }}></span>
-                {data.color}
-              </span>
-            )}
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "48px", height: "48px", borderRadius: "50%", backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "600" }}>
+          {/* User Profile Hook */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0", borderTop: "1px solid var(--gray-light)", marginBottom: "40px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "var(--gray-light)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "20px", boxShadow: "var(--shadow-sm)" }}>
                 {data.user?.username?.charAt(0).toUpperCase() || "U"}
               </div>
               <div>
-                <div style={{ fontWeight: "600", fontSize: "16px" }}>{data.user?.username || "Unknown"}</div>
-                <div style={{ fontSize: "14px", color: "#666" }}>0 followers</div>
+                <div style={{ fontWeight: "700", fontSize: "17px", color: "var(--text-primary)" }}>{data.user?.username || "Unknown Architect"}</div>
+                <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Community Creator</div>
               </div>
             </div>
-            <button style={{
-              backgroundColor: "#efefef", border: "none", borderRadius: "24px", padding: "12px 20px",
-              fontWeight: "600", cursor: "pointer"
-            }}>
-              Follow
-            </button>
+            {data.user?.username !== username && (
+              <button
+                onClick={toggleFollow}
+                disabled={loading}
+                style={{
+                  backgroundColor: isFollowing ? "var(--text-primary)" : "var(--gray-light)",
+                  color: isFollowing ? "white" : "var(--text-primary)",
+                  border: "none", borderRadius: "30px", padding: "14px 24px",
+                  fontWeight: "700", cursor: "pointer", transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  if (!isFollowing) e.currentTarget.style.backgroundColor = "var(--gray-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isFollowing) e.currentTarget.style.backgroundColor = "var(--gray-light)";
+                }}
+              >
+                {isFollowing ? "Following" : "Follow"}
+              </button>
+            )}
           </div>
 
-          <div style={{ marginTop: "auto" }}>
-            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px" }}>Comments</h3>
+          {/* Comments Section */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            <h3 style={{ fontSize: "22px", fontWeight: "700", marginBottom: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
+              Comments <span style={{ fontSize: "14px", background: "var(--gray-light)", padding: "4px 10px", borderRadius: "10px", color: "var(--text-secondary)" }}>{comments.length}</span>
+            </h3>
 
-            <div style={{ maxHeight: "200px", overflowY: "auto", marginBottom: "24px" }}>
-              {comments.length === 0 && <p style={{ color: "#767676", fontStyle: "italic" }}>No comments yet. Share your thoughts!</p>}
+            <div style={{ flex: 1, overflowY: "auto", marginBottom: "30px", paddingRight: "10px" }}>
+              {comments.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px 0", opacity: 0.5 }}>
+                  <div style={{ fontSize: "32px", marginBottom: "10px" }}>💬</div>
+                  <p style={{ fontWeight: "500" }}>No thoughts yet. Be the first to comment!</p>
+                </div>
+              )}
               {comments.map((c, i) => (
-                <div key={i} style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
-                  <img src={getUserAvatar(c.user)} alt="avatar" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                <div key={i} style={{ display: "flex", gap: "16px", marginBottom: "24px", animation: "fadeIn 0.3s ease-out" }}>
+                  <img src={c.user.avatarUrl || placeholderAvatar} alt="avatar" style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", boxShadow: "var(--shadow-sm)" }} />
                   <div>
-                    <div style={{ fontSize: "14px", lineHeight: "1.4" }}>
-                      <span style={{ fontWeight: "700", marginRight: "8px" }}>{c.user.username}</span>
-                      {c.text}
+                    <div style={{ background: "var(--gray-light)", padding: "12px 16px", borderRadius: "20px", borderBottomLeftRadius: "4px" }}>
+                      <div style={{ fontWeight: "700", fontSize: "14px", marginBottom: "4px", color: "var(--text-primary)" }}>{c.user.username}</div>
+                      <div style={{ fontSize: "15px", lineHeight: "1.5", color: "var(--text-primary)" }}>{c.text}</div>
                     </div>
-                    <div style={{ fontSize: "11px", color: "#767676", marginTop: "4px" }}>{new Date(c.createdAt).toLocaleDateString()}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "6px", marginLeft: "12px" }}>{new Date(c.createdAt).toLocaleDateString()}</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", padding: "16px 0", borderTop: "1px solid #efefef" }}>
-              <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#efefef", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "600" }}>
-                {username[0]}
+            {/* Sticky Comment Input */}
+            <div style={{ display: "flex", gap: "16px", alignItems: "center", padding: "20px 0", borderTop: "1px solid var(--gray-light)", backgroundColor: "white" }}>
+              <div style={{ width: "44px", height: "44px", borderRadius: "50%", backgroundColor: "var(--pinterest-red)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", boxShadow: "var(--shadow-sm)" }}>
+                {username[0]?.toUpperCase()}
               </div>
               <input
                 type="text"
-                placeholder="Add a comment"
+                placeholder="Share your thoughts..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addComment()}
                 style={{
-                  flex: 1, padding: "12px 16px", borderRadius: "24px", border: "1px solid #ddd",
-                  outline: "none", fontSize: "16px", backgroundColor: "#f9f9f9"
+                  flex: 1, padding: "14px 20px", borderRadius: "30px", border: "2px solid var(--gray-light)",
+                  outline: "none", fontSize: "16px", transition: "all 0.2s", fontWeight: "500"
                 }}
+                onFocus={(e) => e.target.style.borderColor = "var(--gray-hover)"}
+                onBlur={(e) => e.target.style.borderColor = "var(--gray-light)"}
               />
             </div>
           </div>

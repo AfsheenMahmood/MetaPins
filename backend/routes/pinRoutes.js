@@ -5,6 +5,7 @@ const cloudinary = require("../config/cloudinary");
 const Pin = require("../models/Pin");
 const User = require("../models/User");
 const Comment = require("../models/Comment");
+const { calculateSimilarityScore } = require("../utils/analytics");
 const jwt = require("jsonwebtoken");
 
 // Simple auth middleware
@@ -60,12 +61,25 @@ router.post("/", auth, upload.single("image"), async (req, res) => {
   }
 });
 
-// Get all pins (Home feed)
 router.get("/", async (req, res) => {
   try {
-    const pins = await Pin.find()
+    const { userId } = req.query;
+    let pins = await Pin.find()
       .populate("user", "username name email avatarUrl")
       .sort({ createdAt: -1 });
+
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user && user.interests && user.interests.size > 0) {
+        // Rank pins based on user interests
+        pins = pins.sort((a, b) => {
+          const scoreA = user.interests.get(a.category) || 0;
+          const scoreB = user.interests.get(b.category) || 0;
+          if (scoreA !== scoreB) return scoreB - scoreA;
+          return 0; // Maintain date sort for equal interest
+        });
+      }
+    }
 
     res.json(pins);
   } catch (err) {
@@ -150,6 +164,26 @@ router.get("/:pinId/comments", async (req, res) => {
     res.json(comments);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch comments" });
+  }
+});
+
+// Advanced Analytics: Get similar pins
+router.get("/:pinId/similar", async (req, res) => {
+  try {
+    const targetPin = await Pin.findById(req.params.pinId);
+    if (!targetPin) return res.status(404).json({ message: "Pin not found" });
+
+    // Fetch all pins to perform analytics/ranking
+    // In a real big data scenario, this would be a vector search in the DB
+    const allPins = await Pin.find();
+
+    const results = calculateSimilarityScore(targetPin, allPins);
+
+    // Return the top 10 pins
+    res.json(results.slice(0, 10).map(r => r.pin));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Analytics search failed" });
   }
 });
 
