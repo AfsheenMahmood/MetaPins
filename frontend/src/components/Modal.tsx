@@ -29,6 +29,10 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentObj[]>([]);
   const [loading, setLoading] = useState(false);
+  const [boards, setBoards] = useState<any[]>([]);
+  const [showBoardDropdown, setShowBoardDropdown] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState("");
+  const [creatingBoard, setCreatingBoard] = useState(false);
   const placeholderAvatar = "https://via.placeholder.com/40?text=U";
 
   useEffect(() => {
@@ -52,11 +56,25 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     fetchComments();
   }, [data, isOpen]);
 
+  const fetchBoards = async () => {
+    if (!token || !username) return;
+    try {
+      const res = await axios.get(`${BACKEND_URL}/users/${username}/boards`);
+      setBoards(res.data);
+    } catch (err) {
+      console.error("Failed to fetch boards:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) fetchBoards();
+  }, [isOpen]);
+
   if (!isOpen || !data || !userData) return null;
 
   const pinId = String(data._id || data.id);
 
-  const optimisticUpdate = (field: "likes" | "savedPins" | "moodBoard", action: "add" | "remove") => {
+  const optimisticUpdate = (field: "likes" | "savedPins", action: "add" | "remove") => {
     setUserData((prev: any) => {
       if (!prev) return prev;
       const list = prev[field] || [];
@@ -87,7 +105,6 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
         name: res.data.name || "",
         likes: res.data.likes || [],
         savedPins: res.data.savedPins || [],
-        moodBoard: res.data.moodBoard || [],
         following: res.data.following || [],
         followersCount: res.data.followersCount || 0,
         followingCount: res.data.followingCount || 0,
@@ -130,19 +147,40 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     }
   };
 
-  const toggleMoodBoard = async () => {
+  const handleSaveToBoard = async (boardId: string) => {
     if (loading) return;
     setLoading(true);
-    const isInMoodBoard = inMoodBoard;
-    optimisticUpdate("moodBoard", isInMoodBoard ? "remove" : "add");
     try {
-      await axios.post(`${BACKEND_URL}/users/${username}/moodboard/${pinId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      await syncWithServer();
+      await axios.post(`${BACKEND_URL}/users/${username}/boards/${boardId}/add/${pinId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchBoards();
+      setShowBoardDropdown(false);
     } catch (err) {
-      optimisticUpdate("moodBoard", isInMoodBoard ? "add" : "remove");
+      console.error("Failed to save to board:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateAndSave = async () => {
+    if (!newBoardTitle.trim() || creatingBoard) return;
+    setCreatingBoard(true);
+    try {
+      const res = await axios.post(`${BACKEND_URL}/users/${username}/boards`, { title: newBoardTitle }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await handleSaveToBoard(res.data._id);
+      setNewBoardTitle("");
+    } catch (err) {
+      console.error("Failed to create and save:", err);
+    } finally {
+      setCreatingBoard(false);
+    }
+  };
+
+  const toggleMoodBoard = () => {
+    setShowBoardDropdown(!showBoardDropdown);
   };
 
   const toggleFollow = async () => {
@@ -190,7 +228,6 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
 
   const liked = isIdInList(userData.likes, pinId);
   const saved = isIdInList(userData.savedPins, pinId);
-  const inMoodBoard = isIdInList(userData.moodBoard, pinId);
   const authorId = String(data.user?._id || data.user?.id || "");
   const isFollowing = authorId && isIdInList(userData.following, authorId);
 
@@ -245,27 +282,82 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
                 <span style={{ fontSize: "16px", fontWeight: "700" }}>{liked ? 1 : 0}</span>
               </button>
 
-              <button
-                onClick={toggleMoodBoard}
-                title="Save to Moodboard"
-                style={{
-                  background: inMoodBoard ? "var(--gray-hover)" : "var(--gray-light)",
-                  border: "none", cursor: "pointer", fontSize: "20px",
-                  width: "44px", height: "44px", borderRadius: "50%",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.2s"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.1)";
-                  e.currentTarget.style.backgroundColor = "var(--gray-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.backgroundColor = inMoodBoard ? "var(--gray-hover)" : "var(--gray-light)";
-                }}
-              >
-                {inMoodBoard ? "🧩" : "➕"}
-              </button>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={toggleMoodBoard}
+                  title="Save to Moodboard"
+                  style={{
+                    background: showBoardDropdown ? "var(--gray-hover)" : "var(--gray-light)",
+                    border: "none", cursor: "pointer", fontSize: "20px",
+                    width: "44px", height: "44px", borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.1)";
+                    e.currentTarget.style.backgroundColor = "var(--gray-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.backgroundColor = showBoardDropdown ? "var(--gray-hover)" : "var(--gray-light)";
+                  }}
+                >
+                  🧩
+                </button>
+
+                {showBoardDropdown && (
+                  <div style={{
+                    position: "absolute", top: "54px", left: "0", backgroundColor: "white",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.15)", borderRadius: "16px",
+                    width: "280px", padding: "16px", zIndex: 10, animation: "slideDown 0.2s ease-out"
+                  }}>
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: "700", color: "var(--text-secondary)" }}>Choose Board</h4>
+                    <div style={{ maxHeight: "200px", overflowY: "auto", marginBottom: "12px" }}>
+                      {boards.map((b) => {
+                        const hasPin = b.pins?.some((p: any) => String(p._id || p.id || p) === pinId);
+                        return (
+                          <div
+                            key={b._id}
+                            onClick={() => !hasPin && handleSaveToBoard(b._id)}
+                            style={{
+                              padding: "10px 12px", borderRadius: "8px", cursor: hasPin ? "default" : "pointer",
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                              backgroundColor: "transparent", transition: "0.2s"
+                            }}
+                            onMouseEnter={(e) => !hasPin && (e.currentTarget.style.backgroundColor = "var(--gray-light)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                          >
+                            <span style={{ fontWeight: "600", color: hasPin ? "var(--text-secondary)" : "var(--text-primary)" }}>{b.title}</span>
+                            {hasPin && <span style={{ fontSize: "12px", color: "var(--pinterest-red)" }}>Saved</span>}
+                          </div>
+                        );
+                      })}
+                      {boards.length === 0 && <p style={{ fontSize: "12px", color: "var(--text-secondary)", textAlign: "center" }}>No boards yet.</p>}
+                    </div>
+                    <div style={{ borderTop: "1px solid var(--gray-light)", paddingTop: "12px" }}>
+                      <input
+                        placeholder="Create new board..."
+                        value={newBoardTitle}
+                        onChange={(e) => setNewBoardTitle(e.target.value)}
+                        style={{
+                          width: "100%", padding: "8px 12px", borderRadius: "8px",
+                          border: "1px solid var(--gray-light)", marginBottom: "8px", outline: "none"
+                        }}
+                      />
+                      <button
+                        onClick={handleCreateAndSave}
+                        disabled={!newBoardTitle.trim() || creatingBoard}
+                        style={{
+                          width: "100%", backgroundColor: "var(--pinterest-red)", color: "white",
+                          border: "none", padding: "8px", borderRadius: "8px", fontWeight: "700", cursor: "pointer"
+                        }}
+                      >
+                        {creatingBoard ? "Creating..." : "Create & Save"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: "12px" }}>

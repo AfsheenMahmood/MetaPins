@@ -20,14 +20,48 @@ type ProfileModalProps = {
 };
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, token, pins, onUpdateUser, onPinClick, isPublic, currentUser, onNavigateToUser, onUpdateCurrentUser }) => {
-  const [activeTab, setActiveTab] = useState<"created" | "saved" | "moodboard" | "followers" | "following">("created");
+  const [activeTab, setActiveTab] = useState<"created" | "saved" | "boards" | "followers" | "following">("created");
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [boards, setBoards] = useState<any[]>([]);
+  const [selectedBoard, setSelectedBoard] = useState<any | null>(null);
+  const [showCreateBoard, setShowCreateBoard] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen || !user) return null;
 
   const isFollowing = currentUser && (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id));
+
+  const fetchBoards = async () => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/users/${user.username}/boards`);
+      setBoards(res.data);
+    } catch (err) {
+      console.error("Failed to fetch boards:", err);
+    }
+  };
+
+  const handleCreateBoard = async () => {
+    if (!newBoardTitle.trim() || !token) return;
+    try {
+      await axios.post(`${BACKEND_URL}/users/${user.username}/boards`, { title: newBoardTitle }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNewBoardTitle("");
+      setShowCreateBoard(false);
+      fetchBoards();
+    } catch (err) {
+      console.error("Failed to create board:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (isOpen) {
+      fetchBoards();
+      setSelectedBoard(null);
+    }
+  }, [isOpen, user.username]);
 
   const toggleFollow = async () => {
     if (!token || !currentUser || loading) return;
@@ -84,6 +118,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
   };
 
   const displayPins = (() => {
+    if (selectedBoard) return selectedBoard.pins || [];
     const list = pins || [];
     if (activeTab === "created") {
       return list.filter(p =>
@@ -94,9 +129,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
     }
     if (activeTab === "saved" && !isPublic) {
       return list.filter(p => (user.savedPins || []).some((id: any) => String(id) === String(p.id)));
-    }
-    if (activeTab === "moodboard" && !isPublic) {
-      return list.filter(p => (user.moodBoard || []).some((id: any) => String(id) === String(p.id)));
     }
     return [];
   })();
@@ -203,18 +235,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
               Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
             </button>
           )}
-          {!isPublic && (
-            <button
-              onClick={() => setActiveTab("moodboard")}
-              className={`tab-btn ${activeTab === "moodboard" ? "active" : ""}`}
-              style={tabBtnStyle(activeTab === "moodboard")}
-            >
-              Moodboard <span style={counterStyle(activeTab === "moodboard")}>{(user.moodBoard || []).length}</span>
-            </button>
-          )}
+          <button
+            onClick={() => { setActiveTab("boards"); setSelectedBoard(null); }}
+            className={`tab-btn ${activeTab === "boards" ? "active" : ""}`}
+            style={tabBtnStyle(activeTab === "boards")}
+          >
+            Boards <span style={counterStyle(activeTab === "boards")}>{boards.length}</span>
+          </button>
         </div>
 
         <div style={{ flex: 1 }}>
+          {selectedBoard && (
+            <div style={{ marginBottom: "24px", display: "flex", alignItems: "center", gap: "16px" }}>
+              <button
+                onClick={() => setSelectedBoard(null)}
+                style={{ background: "none", border: "none", fontSize: "24px", cursor: "pointer", color: "var(--text-primary)" }}
+              >
+                ←
+              </button>
+              <h3 style={{ fontSize: "24px", fontWeight: "700" }}>{selectedBoard.title}</h3>
+            </div>
+          )}
+
           {(activeTab === "followers" || activeTab === "following") ? (
             <div style={{ maxWidth: "600px", margin: "0 auto", animation: "fadeIn 0.4s" }}>
               <h3 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
@@ -245,6 +287,95 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
                 ))
               )}
             </div>
+          ) : activeTab === "boards" && !selectedBoard ? (
+            <div style={{ animation: "fadeIn 0.5s" }}>
+              {!isPublic && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "24px" }}>
+                  <button
+                    onClick={() => setShowCreateBoard(true)}
+                    style={{
+                      backgroundColor: "var(--gray-light)", color: "var(--text-primary)", border: "none",
+                      padding: "10px 20px", borderRadius: "20px", fontWeight: "700", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "8px"
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>+</span> Create Board
+                  </button>
+                </div>
+              )}
+
+              {showCreateBoard && (
+                <div style={{
+                  backgroundColor: "var(--gray-light)", padding: "20px", borderRadius: "20px",
+                  marginBottom: "24px", display: "flex", gap: "12px", alignItems: "center"
+                }}>
+                  <input
+                    placeholder="Board name"
+                    value={newBoardTitle}
+                    onChange={(e) => setNewBoardTitle(e.target.value)}
+                    style={{
+                      flex: 1, padding: "12px 20px", borderRadius: "24px", border: "1px solid var(--gray-medium)",
+                      fontSize: "16px", outline: "none"
+                    }}
+                  />
+                  <button
+                    onClick={handleCreateBoard}
+                    style={{
+                      backgroundColor: "var(--pinterest-red)", color: "white", border: "none",
+                      padding: "12px 24px", borderRadius: "24px", fontWeight: "700", cursor: "pointer"
+                    }}
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => setShowCreateBoard(false)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <div style={gridStyle}>
+                {boards.length === 0 && (
+                  <p style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
+                    No boards found.
+                  </p>
+                )}
+                {boards.map((board) => (
+                  <div
+                    key={board._id}
+                    onClick={() => setSelectedBoard(board)}
+                    style={{ cursor: "pointer", textAlign: "left" }}
+                  >
+                    <div style={{
+                      aspectRatio: "1", borderRadius: "20px", overflow: "hidden",
+                      backgroundColor: "var(--gray-light)", marginBottom: "12px",
+                      display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px"
+                    }}>
+                      {board.pins && board.pins.length > 0 ? (
+                        board.pins.slice(0, 4).map((p: any, i: number) => (
+                          <img
+                            key={i}
+                            src={p.imageUrl}
+                            alt="preview"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ))
+                      ) : (
+                        <div style={{ gridColumn: "1/-1", display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+                          🖼️
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "16px", paddingLeft: "8px" }}>{board.title}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-secondary)", paddingLeft: "8px" }}>
+                      {(board.pins || []).length} Pins
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div style={gridStyle}>
               {displayPins.length === 0 && (
@@ -265,9 +396,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
                   )}
                 </div>
               )}
-              {displayPins.map((pin, i) => (
+              {displayPins.map((pin: any, i: number) => (
                 <div
-                  key={pin.id}
+                  key={pin.id || pin._id}
                   className="pin-card"
                   style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
                   onClick={() => onPinClick(pin)}

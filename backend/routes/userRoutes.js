@@ -313,6 +313,45 @@ router.post("/:username/boards/:boardId/add/:pinId", auth, async (req, res) => {
   }
 });
 
+// Remove pin from board
+router.delete("/:username/boards/:boardId/remove/:pinId", auth, async (req, res) => {
+  try {
+    const board = await Board.findById(req.params.boardId);
+    if (!board) return res.status(404).json({ message: "Board not found" });
+
+    if (board.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const index = board.pins.findIndex(id => id.toString() === req.params.pinId);
+    if (index > -1) {
+      board.pins.splice(index, 1);
+      await board.save();
+    }
+
+    res.json(board);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to remove from board" });
+  }
+});
+
+// Delete a board
+router.delete("/:username/boards/:boardId", auth, async (req, res) => {
+  try {
+    const board = await Board.findById(req.params.boardId);
+    if (!board) return res.status(404).json({ message: "Board not found" });
+
+    if (board.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    await Board.findByIdAndDelete(req.params.boardId);
+    res.json({ message: "Board deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete board" });
+  }
+});
+
 // Toggle follow/unfollow
 router.post("/:username/follow/:targetUsername", auth, async (req, res) => {
   try {

@@ -26,18 +26,28 @@ export type Pin = {
   [key: string]: any;
 };
 
+export type Board = {
+  _id: string;
+  id: string;
+  title: string;
+  description?: string;
+  pins: any[];
+  user: string;
+  createdAt?: string;
+};
+
 type User = {
   id: string;
   username: string;
   uploaded: string[];
   savedPins: string[];
   likes: string[];
-  moodBoard: string[];
   following: string[];
   followersCount: number;
   followingCount: number;
   avatarUrl?: string;
   name?: string;
+  boards?: Board[];
 };
 
 const App: React.FC = () => {
@@ -108,7 +118,6 @@ const App: React.FC = () => {
           uploaded: res.data.uploaded || [],
           savedPins: res.data.savedPins || [],
           likes: res.data.likes || [],
-          moodBoard: res.data.moodBoard || [],
           following: res.data.following || [],
           followersCount: res.data.followersCount || 0,
           followingCount: res.data.followingCount || 0,
@@ -240,7 +249,6 @@ const App: React.FC = () => {
         uploaded: res.data.uploaded || [],
         savedPins: res.data.savedPins || [],
         likes: res.data.likes || [],
-        moodBoard: res.data.moodBoard || [],
         following: res.data.following || [],
         followersCount: res.data.followersCount || 0,
         followingCount: res.data.followingCount || 0,
