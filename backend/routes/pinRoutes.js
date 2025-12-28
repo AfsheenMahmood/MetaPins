@@ -91,6 +91,7 @@ router.get("/", async (req, res) => {
 router.get("/user/:userId", async (req, res) => {
   try {
     const pins = await Pin.find({ user: req.params.userId })
+      .populate("user", "username name email avatarUrl")
       .sort({ createdAt: -1 });
 
     res.json(pins);
@@ -170,12 +171,11 @@ router.get("/:pinId/comments", async (req, res) => {
 // Advanced Analytics: Get similar pins
 router.get("/:pinId/similar", async (req, res) => {
   try {
-    const targetPin = await Pin.findById(req.params.pinId);
+    const targetPin = await Pin.findById(req.params.pinId).populate("user", "username name email avatarUrl");
     if (!targetPin) return res.status(404).json({ message: "Pin not found" });
 
     // Fetch all pins to perform analytics/ranking
-    // In a real big data scenario, this would be a vector search in the DB
-    const allPins = await Pin.find();
+    const allPins = await Pin.find().populate("user", "username name email avatarUrl");
 
     const results = calculateSimilarityScore(targetPin, allPins);
 

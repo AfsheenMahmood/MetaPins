@@ -47,8 +47,8 @@ router.get("/:username", async (req, res) => {
       moodBoard: (user.moodBoard || []).map(p => p?._id || p),
       followers: (user.followers || []).map(u => u?._id || u),
       following: (user.following || []).map(u => u?._id || u),
-      followersCount: (user.followers || []).length,
-      followingCount: (user.following || []).length,
+      followersCount: user.followersCount || 0,
+      followingCount: user.followingCount || 0,
       createdAt: user.createdAt
     });
   } catch (err) {
@@ -315,6 +315,9 @@ router.post("/:username/follow/:targetUsername", auth, async (req, res) => {
       return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
+    if (!currentUser.following) currentUser.following = [];
+    if (!targetUser.followers) targetUser.followers = [];
+
     const followingIndex = currentUser.following.findIndex(id => id.toString() === targetUser._id.toString());
     const followersIndex = targetUser.followers.findIndex(id => id.toString() === currentUser._id.toString());
 
@@ -331,10 +334,18 @@ router.post("/:username/follow/:targetUsername", auth, async (req, res) => {
     await currentUser.save();
     await targetUser.save();
 
+    // Update counts
+    currentUser.followingCount = currentUser.following.length;
+    targetUser.followersCount = targetUser.followers.length;
+
+    await currentUser.save();
+    await targetUser.save();
+
     res.json({
       message: followingIndex > -1 ? "Unfollowed" : "Followed",
       following: currentUser.following,
-      followersCount: targetUser.followers.length
+      followersCount: targetUser.followersCount,
+      followingCount: currentUser.followingCount
     });
   } catch (err) {
     console.error(err);
