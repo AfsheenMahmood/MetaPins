@@ -25,10 +25,7 @@ const auth = (req, res, next) => {
 router.get("/:username", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username })
-      .populate("savedPins")
       .populate("uploaded")
-      .populate("likes")
-      .populate("moodBoard")
       .populate("followers", "username name avatarUrl")
       .populate("following", "username name avatarUrl")
       .select("-password"); // Don't send password
@@ -37,16 +34,33 @@ router.get("/:username", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Check if the requester is the owner
+    const isOwner = req.headers.authorization && (() => {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
+        return decoded.username === user.username;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (isOwner) {
+      await user.populate("savedPins");
+      await user.populate("moodBoard");
+      await user.populate("likes");
+    }
+
     res.json({
       id: user._id,
       username: user.username,
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
-      savedPins: (user.savedPins || []).map(p => p?._id || p),
       uploaded: (user.uploaded || []).map(p => p?._id || p),
-      likes: (user.likes || []).map(p => p?._id || p),
-      moodBoard: (user.moodBoard || []).map(p => p?._id || p),
+      savedPins: isOwner ? (user.savedPins || []).map(p => p?._id || p) : [],
+      likes: isOwner ? (user.likes || []).map(p => p?._id || p) : [],
+      moodBoard: isOwner ? (user.moodBoard || []).map(p => p?._id || p) : [],
       followers: (user.followers || []).map(u => typeof u === "object" ? u : { _id: u }),
       following: (user.following || []).map(u => typeof u === "object" ? u : { _id: u }),
       followersCount: user.followersCount || 0,

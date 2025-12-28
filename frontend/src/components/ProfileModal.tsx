@@ -83,25 +83,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  const getDisplayPins = () => {
+  const displayPins = (() => {
     const list = pins || [];
-    switch (activeTab) {
-      case "created":
-        return list.filter(p =>
-          (user.uploaded || []).some((id: any) => String(id) === String(p.id)) ||
-          String(p.user?._id || p.user?.id || p.user) === String(user.id) ||
-          p.user?.username === user.username
-        );
-      case "saved":
-        return list.filter(p => (user.savedPins || []).some((id: any) => String(id) === String(p.id)));
-      case "moodboard":
-        return list.filter(p => (user.moodBoard || []).some((id: any) => String(id) === String(p.id)));
-      default:
-        return [];
+    if (activeTab === "created") {
+      return list.filter(p =>
+        (user.uploaded || []).some((id: any) => String(id) === String(p.id)) ||
+        String(p.user?._id || p.user?.id || p.user) === String(user.id) ||
+        p.user?.username === user.username
+      );
     }
-  };
-
-  const displayPins = getDisplayPins();
+    if (activeTab === "saved" && !isPublic) {
+      return list.filter(p => (user.savedPins || []).some((id: any) => String(id) === String(p.id)));
+    }
+    if (activeTab === "moodboard" && !isPublic) {
+      return list.filter(p => (user.moodBoard || []).some((id: any) => String(id) === String(p.id)));
+    }
+    return [];
+  })();
   const avatarUrl = user.avatarUrl || `https://via.placeholder.com/150?text=${user.username[0].toUpperCase()}`;
 
   return (
@@ -175,7 +173,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
               onClick={toggleFollow}
               disabled={loading}
               style={{
-                backgroundColor: (currentUser.following || []).some((id: any) => String(id) === String(user.id) || String(id?._id || id?.id) === String(user.id))
+                backgroundColor: isFollowing
                   ? "var(--text-primary)"
                   : "var(--pinterest-red)",
                 color: "white", borderRadius: "30px", padding: "12px 32px", fontSize: "16px",
@@ -196,13 +194,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
           >
             Created <span style={counterStyle(activeTab === "created")}>{(user.uploaded || []).length}</span>
           </button>
-          <button
-            onClick={() => setActiveTab("saved")}
-            className={`tab-btn ${activeTab === "saved" ? "active" : ""}`}
-            style={tabBtnStyle(activeTab === "saved")}
-          >
-            Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
-          </button>
+          {!isPublic && (
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`tab-btn ${activeTab === "saved" ? "active" : ""}`}
+              style={tabBtnStyle(activeTab === "saved")}
+            >
+              Saved <span style={counterStyle(activeTab === "saved")}>{(user.savedPins || []).length}</span>
+            </button>
+          )}
           {!isPublic && (
             <button
               onClick={() => setActiveTab("moodboard")}
