@@ -384,8 +384,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
               </div>
             </div>
           ) : (
-            <div style={gridStyle}>
+            <div className="masonry-grid" style={{ padding: "12px 0" }}>
               {displayPins.length === 0 && (
+
                 <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "80px 40px", color: "var(--text-secondary)", animation: "fadeIn 0.5s" }}>
                   <div style={{ fontSize: "40px", marginBottom: "16px" }}>🏜️</div>
                   <p style={{ fontSize: "18px", fontWeight: "600", color: "var(--text-primary)" }}>Your collection is whisper quiet.</p>
@@ -404,20 +405,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
                 </div>
               )}
               {displayPins.map((pin: any, i: number) => (
-                <div
-                  key={pin.id || pin._id}
-                  className="pin-card"
-                  style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
-                  onClick={() => onPinClick(pin)}
-                >
-                  <div style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "var(--shadow-sm)", transition: "all 0.3s" }}>
-                    <img
-                      src={pin.imageUrl}
-                      alt={pin.title || "Pin"}
-                      style={{ width: "100%", objectFit: "cover", display: "block", transition: "all 0.4s" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                    />
+                <div key={pin.id || pin._id} className="masonry-item">
+                  <div
+                    className="pin-card"
+                    style={{ cursor: "pointer", animation: `fadeIn 0.5s ease-out ${i * 0.05}s both` }}
+                    onClick={() => onPinClick(pin)}
+                  >
+                    <div style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "var(--shadow-sm)", transition: "all 0.3s" }}>
+                      <img
+                        src={pin.imageUrl}
+                        alt={pin.title || "Pin"}
+                        style={{ width: "100%", objectFit: "cover", display: "block", transition: "all 0.4s" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
