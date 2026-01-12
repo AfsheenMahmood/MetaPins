@@ -5,6 +5,7 @@ const cloudinary = require("../config/cloudinary");
 const Pin = require("../models/Pin");
 const User = require("../models/User");
 const Comment = require("../models/Comment");
+const Board = require("../models/Board");
 const { calculateSimilarityScore } = require("../utils/analytics");
 const jwt = require("jsonwebtoken");
 
@@ -184,6 +185,57 @@ router.get("/:pinId/similar", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Analytics search failed" });
+  }
+});
+
+// Delete a pin
+router.delete("/:pinId", auth, async (req, res) => {
+  try {
+    const pin = await Pin.findById(req.params.pinId);
+    if (!pin) return res.status(404).json({ message: "Pin not found" });
+
+    // Check ownership
+    if (pin.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to delete this pin" });
+    }
+
+    // 1. Delete associated comments
+    await Comment.deleteMany({ pin: pin._id });
+
+    // 2. Remove pin from creator's uploaded list
+    await User.findByIdAndUpdate(pin.user, {
+      $pull: { uploaded: pin._id }
+    });
+
+    // 3. Remove pin from all boards
+    await Board.updateMany(
+      { pins: pin._id },
+      { $pull: { pins: pin._id } }
+    );
+
+    // 4. Remove pin from all users' savedPins and moodBoards
+    await User.updateMany(
+      { $or: [{ savedPins: pin._id }, { moodBoard: pin._id }] },
+      { $pull: { savedPins: pin._id, moodBoard: pin._id } }
+    );
+
+    // 5. Delete from Cloudinary
+    try {
+      const urlParts = pin.imageUrl.split("/");
+      const fileName = urlParts[urlParts.length - 1];
+      const publicId = fileName.split(".")[0];
+      await cloudinary.uploader.destroy(publicId);
+    } catch (cloudinaryErr) {
+      console.warn("Failed to delete from Cloudinary:", cloudinaryErr.message);
+    }
+
+    // 6. Delete from MongoDB
+    await Pin.findByIdAndDelete(req.params.pinId);
+
+    res.json({ message: "Pin deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete pin" });
   }
 });
 

@@ -19,12 +19,13 @@ type ModalProps = {
   currentUser: any;
   onUpdateUser: (user: any) => void;
   onOpenProfile?: (user: any) => void;
+  onDelete?: (pinId: string) => void;
 };
 
 import { BASE_URL } from "../config";
 const BACKEND_URL = BASE_URL;
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token, currentUser, onUpdateUser, onOpenProfile }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, token, currentUser, onUpdateUser, onOpenProfile, onDelete }) => {
   const [userData, setUserData] = useState<any>(currentUser || null);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentObj[]>([]);
@@ -230,6 +231,25 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
     }
   };
 
+  const handleDelete = async () => {
+    if (!pinId || !token) return;
+    if (!window.confirm("Are you sure you want to delete this pin? This cannot be undone.")) return;
+
+    setLoading(true);
+    try {
+      await axios.delete(`${BACKEND_URL}/pins/${pinId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (onDelete) onDelete(pinId);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete pin:", err);
+      alert("Failed to delete pin.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isIdInList = (list: any[], targetId: string) =>
     Array.isArray(list) && list.some(id => String(id) === targetId || String(id?._id || id?.id || id) === targetId);
 
@@ -368,6 +388,21 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, data, username, t
             </div>
 
             <div style={{ display: "flex", gap: "12px" }}>
+              {(data.user?.username === username) && (
+                <button
+                  onClick={handleDelete}
+                  title="Delete Pin"
+                  style={{
+                    background: "var(--gray-light)", border: "none", cursor: "pointer", fontSize: "20px",
+                    borderRadius: "50%", width: "48px", height: "48px",
+                    display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s",
+                    color: "var(--pinterest-red)"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#fee2e2"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--gray-light)"}
+                >🗑️</button>
+              )}
+
               <button
                 onClick={() => {
                   onClose();
