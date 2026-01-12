@@ -74,6 +74,3 @@ cd MetaPins
 
 ---
 
-<p align="center">
-  Built with ❤️ by [Afsheen Mahmood](https://github.com/AfsheenMahmood)
-</p>
